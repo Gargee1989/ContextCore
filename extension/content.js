@@ -34,7 +34,7 @@
 		lookupCard.setAttribute("data-contentcore", "lookup-card");
 		lookupCard.innerHTML = `
 			<div class="cc-header">
-				<strong>ContentCore</strong>
+				<strong>Context Core</strong>
 				<button type="button" data-cc-close aria-label="Close">&times;</button>
 			</div>
 			<div class="cc-word"></div>
