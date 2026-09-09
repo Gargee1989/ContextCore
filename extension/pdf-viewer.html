@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>ContentCore PDF Reader</title>
+	<style>
+		* { box-sizing: border-box; }
+		body { margin: 0; color: #17211b; background: #333; font: 14px Arial, sans-serif; }
+		.toolbar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: #f8f7f1; position: sticky; top: 0; z-index: 2; }
+		.toolbar strong { color: #35644a; }
+		#file-input { max-width: 280px; color: #39483c; font: 13px Arial, sans-serif; }
+		#file-input::file-selector-button { margin-right: 10px; padding: 8px 12px; border: 1px solid #35644a; border-radius: 5px; background: #35644a; color: #fff; cursor: pointer; font: 600 12px Arial, sans-serif; }
+		#file-input::file-selector-button:hover { background: #2d5239; }
+		#status { color: #667066; }
+		#pdf-render { padding: 24px; }
+		.pdf-page { position: relative; width: fit-content; margin: 0 auto 24px; background: white; box-shadow: 0 4px 18px rgba(0, 0, 0, .35); }
+		.pdf-page canvas { display: block; }
+		.text-layer { position: absolute; inset: 0; overflow: hidden; line-height: 1; opacity: .25; }
+		.text-layer span { position: absolute; color: transparent; white-space: pre; transform-origin: 0 0; cursor: text; }
+		.text-layer ::selection { background: rgba(53, 100, 74, .35); }
+		[data-contentcore="lookup-card"] { position: fixed; z-index: 10; width: 300px; padding: 14px; color: #17211b; background: #f8f7f1; border: 1px solid #c6c9bb; border-radius: 8px; box-shadow: 0 12px 32px rgba(18, 28, 20, .35); font: 14px/1.45 Georgia, serif; }
+		[data-contentcore="lookup-card"] * { box-sizing: border-box; }
+		.cc-header, .cc-actions { display: flex; align-items: center; gap: 8px; }
+		.cc-actions { justify-content: flex-end; margin-top: 12px; }
+		.cc-header { color: #35644a; font: 700 12px/1.2 Arial, sans-serif; letter-spacing: .08em; text-transform: uppercase; }
+		.cc-header button { border: 0; background: transparent; color: #667066; cursor: pointer; font-size: 20px; line-height: 1; }
+		.cc-word { margin-top: 12px; font-size: 20px; font-weight: 700; overflow-wrap: anywhere; }
+		.cc-status { min-height: 20px; color: #35644a; font: 12px/1.4 Arial, sans-serif; }
+		.cc-error { color: #a53e32; }
+		.cc-actions button { padding: 8px 12px; border-radius: 5px; cursor: pointer; font: 600 12px Arial, sans-serif; }
+		.cc-primary { border: 1px solid #35644a; background: #35644a; color: white; }
+		.cc-secondary { border: 1px solid #b8beb2; background: transparent; color: #35644a; }
+		.cc-result { margin-top: 8px; color: #263228; font-size: 15px; max-height: 140px; overflow: auto; }
+	</style>
+</head>
+<body>
+	<div class="toolbar">
+		<strong>ContentCore PDF Reader</strong>
+		<input id="file-input" type="file" accept="application/pdf">
+		<span id="status">Choose a PDF to begin.</span>
+	</div>
+	<main id="pdf-render"></main>
+	<script type="module" src="lib/pdfjs/pdf.min.js"></script>
+	<script type="module" src="pdf-reader.js"></script>
+</body>
+</html>

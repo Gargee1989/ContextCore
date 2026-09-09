@@ -1,34 +1,48 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html>
 <head>
-	<meta charset="utf-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<title>ContentCore settings</title>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>ContentCore Settings</title>
 	<style>
-		:root { color: #17211b; background: #f8f7f1; font: 14px/1.45 Georgia, serif; }
-		body { width: 320px; margin: 0; padding: 20px; }
-		h1 { margin: 0; color: #35644a; font: 700 21px/1.1 Georgia, serif; }
-		.intro { margin: 7px 0 20px; color: #667066; }
-		label { display: block; margin: 14px 0 6px; color: #39483c; font: 600 11px Arial, sans-serif; letter-spacing: .06em; text-transform: uppercase; }
-		input { width: 100%; padding: 9px 10px; border: 1px solid #c6c9bb; border-radius: 5px; background: #fffef9; color: #17211b; font: 13px Arial, sans-serif; }
-		input:focus { outline: 2px solid #9bb8a0; outline-offset: 1px; }
-		button { width: 100%; margin-top: 18px; padding: 10px; border: 0; border-radius: 5px; background: #35644a; color: white; cursor: pointer; font: 700 12px Arial, sans-serif; }
-		.note { margin: 15px 0 0; color: #667066; font-size: 12px; }
-		#status { min-height: 18px; margin-top: 9px; color: #35644a; font: 12px Arial, sans-serif; }
+		* { box-sizing: border-box; }
+		body { font: 14px Arial, sans-serif; width: 360px; margin: 0; padding: 16px; background: #f8f7f1; color: #17211b; }
+		h1 { font: 18px/1.2 Arial, sans-serif; color: #35644a; margin: 0 0 16px; }
+		label { display: block; margin-top: 12px; font-weight: 600; color: #35644a; }
+		input { width: 100%; padding: 8px; margin-top: 4px; border: 1px solid #c6c9bb; border-radius: 4px; font: 13px Arial, sans-serif; }
+		button { width: 100%; padding: 10px; margin-top: 16px; background: #35644a; color: white; border: none; border-radius: 4px; cursor: pointer; font: 600 13px Arial, sans-serif; }
+		button:hover { background: #2d5239; }
+		#status { margin-top: 12px; padding: 8px; border-radius: 4px; font-size: 12px; display: none; }
+		#status.success { background: #d4edda; color: #155724; display: block; }
+		#status.error { background: #f8d7da; color: #721c24; display: block; }
+		.info { margin-top: 12px; padding: 8px; background: #e7f3ff; color: #004085; border-radius: 4px; font-size: 12px; line-height: 1.4; }
+		.reader-link { display: block; margin-top: 12px; color: #35644a; font-size: 12px; text-align: center; }
 	</style>
 </head>
 <body>
-	<h1>ContentCore</h1>
-	<p class="intro">Select a word while reading to see what it means in context.</p>
+	<h1>ContentCore Settings</h1>
 	<form id="settings-form">
-		<label for="endpoint">Lookup endpoint</label>
-		<input id="endpoint" type="url" placeholder="https://your-api.example/define" autocomplete="url">
-		<label for="api-key">API key <span>(optional)</span></label>
-		<input id="api-key" type="password" placeholder="Stored locally in Chrome" autocomplete="off">
-		<button type="submit">Save settings</button>
-		<div id="status" role="status" aria-live="polite"></div>
+		<label for="endpoint">LLM API Endpoint (HTTPS):</label>
+		<input type="url" id="endpoint" placeholder="https://api.example.com/explain" required>
+
+		<label for="api-key">API Key:</label>
+		<input type="password" id="api-key" placeholder="Enter your API key">
+
+		<button type="submit">Save Settings</button>
+		<div id="status"></div>
 	</form>
-	<p class="note">Without an endpoint, ContentCore uses a local demo response. API keys are stored in Chrome local storage and are not encrypted.</p>
-	<script src="content.js"></script>
+	<a class="reader-link" href="pdf-viewer.html" target="_blank">Open ContentCore PDF Reader</a>
+
+	<div class="info">
+		<strong>How it works:</strong>
+		<ul style="margin: 8px 0; padding-left: 18px;">
+			<li>Highlight any word on a webpage</li>
+			<li>Use the PDF Reader link for PDF files</li>
+			<li>Click "Explain" to get AI-powered definitions</li>
+			<li>Saved words available in your reading history</li>
+		</ul>
+	</div>
+
+	<script src="popup.js"></script>
 </body>
 </html>
