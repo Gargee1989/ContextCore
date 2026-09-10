@@ -22,11 +22,10 @@
 <body>
 	<h1>ContentCore Settings</h1>
 	<form id="settings-form">
-		<button id="open-reader" type="button">Open PDF reader</button>
 		<label for="endpoint">Lookup endpoint</label>
-		<input id="endpoint" type="url" placeholder="https://your-api.example/define" autocomplete="url">
-		<label for="api-key">API key <span>(optional)</span></label>
-		<input id="api-key" type="password" placeholder="Stored locally in Chrome" autocomplete="off">
+		<input id="endpoint" type="url" placeholder="http://127.0.0.1:8000/define" autocomplete="url">
+		<label for="api-key">API key <span>(optional for FastAPI)</span></label>
+		<input id="api-key" type="password" placeholder="Only needed if your endpoint requires it" autocomplete="off">
 		<button type="submit">Save settings</button>
 		<div id="status" role="status" aria-live="polite"></div>
 	</form>

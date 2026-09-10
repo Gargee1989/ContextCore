@@ -5,6 +5,8 @@ Provides the POST /define API endpoint for the PDF & E-book Reader Extension.
 Enforces strict input validation, privacy safeguards, and standardized error envelopes.
 """
 
+from __future__ import annotations
+
 import logging
 from contextlib import asynccontextmanager
 from typing import Any

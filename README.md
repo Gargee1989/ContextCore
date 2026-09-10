@@ -4,3 +4,21 @@ Context Core is an AI-powered browser extension that gives PDF and e-book reader
 ## PDF reader
 
 Open the extension popup and choose **Open PDF reader**. Select a local PDF or enter a PDF URL to open it with the bundled PDF.js viewer. Text rendered by the viewer can be selected for the existing Context Core lookup flow.
+
+## Backend
+
+The official backend is the Python FastAPI app in `backend/app.py`.
+
+Run it from the project root with:
+
+```bash
+uvicorn backend.app:app --reload --port 8000
+```
+
+Set the provider key in `backend/.env`, then configure this endpoint in the extension settings:
+
+```text
+http://127.0.0.1:8000/define
+```
+
+The extension sends `POST /define` with `word` and `context`. The backend accepts the word aliases used by the extension and returns a response containing `meaning`, which the extension displays as the explanation. The extension API key field is optional for this local FastAPI setup.

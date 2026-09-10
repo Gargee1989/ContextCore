@@ -64,15 +64,15 @@
 
 	async function explain(context) {
 		const settings = await chrome.storage.local.get(["contentCoreEndpoint", "contentCoreApiKey"]);
-		if (!settings.contentCoreEndpoint || !settings.contentCoreApiKey) {
-			showMessage("No API key or endpoint configured. Open ContentCore settings and add both.", true);
+		if (!settings.contentCoreEndpoint) {
+			showMessage("No API endpoint configured. Open ContentCore settings and add the /define URL.", true);
 			return;
 		}
 		const button = lookupCard.querySelector("[data-explain]");
 		button.disabled = true;
 		setStatus("Fetching explanation...");
 		try {
-			const response = await fetch(settings.contentCoreEndpoint, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${settings.contentCoreApiKey}` }, body: JSON.stringify({ word: selectedText, context }) });
+			const response = await fetch(settings.contentCoreEndpoint, { method: "POST", headers: { "Content-Type": "application/json", ...(settings.contentCoreApiKey ? { Authorization: `Bearer ${settings.contentCoreApiKey}` } : {}) }, body: JSON.stringify({ word: selectedText, context }) });
 			if (!response.ok) throw new Error(`API error (${response.status})`);
 			const result = await response.json();
 			const definition = clean(String(result.definition || result.meaning || result.explanation || result.answer || "No explanation was returned."));
