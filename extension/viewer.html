@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Context Core PDF reader</title>
+	<style>
+		:root { color: #17211b; background: #202722; font: 14px/1.45 Georgia, serif; }
+		* { box-sizing: border-box; }
+		body { margin: 0; min-width: 320px; }
+		.toolbar { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 16px; background: #f8f7f1; border-bottom: 1px solid #c6c9bb; }
+		.brand { margin-right: auto; color: #35644a; font: 700 16px/1 Arial, sans-serif; }
+		button, input { padding: 8px 10px; border: 1px solid #b8beb2; border-radius: 5px; font: 13px Arial, sans-serif; }
+		button { background: #35644a; color: #fff; cursor: pointer; }
+		button:disabled { cursor: wait; opacity: .55; }
+		input { min-width: 220px; background: #fffef9; color: #17211b; }
+		#status { flex-basis: 100%; color: #667066; font-size: 12px; }
+		#status.error { color: #a53e32; }
+		#pages { display: grid; gap: 18px; justify-content: center; padding: 24px; }
+		.page { position: relative; background: white; box-shadow: 0 10px 28px rgba(0, 0, 0, .28); }
+		.page canvas { display: block; }
+		.text-layer { position: absolute; inset: 0; overflow: hidden; line-height: 1; opacity: .2; }
+		.text-layer span { position: absolute; white-space: pre; color: transparent; cursor: text; transform-origin: 0% 0%; }
+		.text-layer ::selection { background: rgba(53, 100, 74, .35); }
+		.empty { padding: 72px 24px; color: #d9dfd6; text-align: center; }
+	</style>
+</head>
+<body>
+	<header class="toolbar">
+		<div class="brand">Context Core PDF reader</div>
+		<input id="pdf-file" type="file" accept="application/pdf">
+		<input id="pdf-url" type="url" placeholder="https://example.com/book.pdf" aria-label="PDF URL">
+		<button id="open-url" type="button">Open URL</button>
+		<button id="zoom-out" type="button" aria-label="Zoom out">-</button>
+		<button id="zoom-in" type="button" aria-label="Zoom in">+</button>
+		<div id="status" role="status" aria-live="polite">Choose a PDF file or open a PDF URL.</div>
+	</header>
+	<main id="pages"><div class="empty">Your PDF pages will appear here. Select text to use Context Core.</div></main>
+	<script src="content.js"></script>
+	<script type="module" src="reader.js"></script>
+</body>
+</html>
