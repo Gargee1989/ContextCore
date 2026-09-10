@@ -4,6 +4,8 @@ ContentCore Backend - Request and Response Schemas
 Defines Pydantic models for input normalization, strict validation, and output formatting.
 """
 
+from __future__ import annotations
+
 from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from backend.config import settings

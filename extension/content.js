@@ -119,17 +119,11 @@
 				return;
 			}
 
-			if (!settings.contentCoreApiKey) {
-				showMessage("No API key configured. Add one in ContentCore settings.", true);
-				button.disabled = false;
-				return;
-			}
-
 			const response = await fetch(settings.contentCoreEndpoint, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
-					Authorization: `Bearer ${settings.contentCoreApiKey}`
+					...(settings.contentCoreApiKey ? { Authorization: `Bearer ${settings.contentCoreApiKey}` } : {})
 				},
 				body: JSON.stringify({ word: selectedText, context })
 			});
@@ -216,15 +210,33 @@
 
 const settingsForm = document.querySelector("#settings-form");
 if (settingsForm) {
-	document.querySelector("#open-reader")?.addEventListener("click", () => {
-		chrome.tabs.create({ url: chrome.runtime.getURL("viewer.html") });
-	});
-
 	const endpoint = document.querySelector("#endpoint");
 	const apiKey = document.querySelector("#api-key");
 	const status = document.querySelector("#status");
 
-	document.addEventListener("scroll", removeCard, { passive: true });
+	chrome.storage.local.get(["contentCoreEndpoint", "contentCoreApiKey"], (settings) => {
+		endpoint.value = settings.contentCoreEndpoint || "";
+		apiKey.value = settings.contentCoreApiKey || "";
+	});
 
-	console.log("✓ ContentCore loaded");
-})();
+	settingsForm.addEventListener("submit", async (event) => {
+		event.preventDefault();
+		let endpointUrl;
+		try {
+			endpointUrl = endpoint.value ? new URL(endpoint.value) : null;
+		} catch {
+			endpointUrl = null;
+		}
+		if (endpoint.value && (!endpoint.validity.valid || endpointUrl?.protocol !== "https:")) {
+			status.textContent = "Enter a valid HTTPS endpoint.";
+			status.className = "error";
+			return;
+		}
+		await chrome.storage.local.set({
+			contentCoreEndpoint: endpoint.value.trim(),
+			contentCoreApiKey: apiKey.value.trim()
+		});
+		status.textContent = "Settings saved.";
+		status.className = "success";
+	});
+}

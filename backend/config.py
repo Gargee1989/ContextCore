@@ -5,6 +5,8 @@ Loads environment variables, defines operational thresholds, and configures
 the LLM provider (NVIDIA NIM or OpenAI) without exposing credentials.
 """
 
+from __future__ import annotations
+
 import os
 from pathlib import Path
 from dotenv import load_dotenv

@@ -18,8 +18,10 @@ if (settingsForm) {
 		} catch {
 			endpointUrl = null;
 		}
-		if (endpoint.value && (!endpoint.validity.valid || endpointUrl?.protocol !== "https:")) {
-			status.textContent = "Enter a valid HTTPS endpoint.";
+		const isLocalHttp = endpointUrl && endpointUrl.protocol === "http:" &&
+			["localhost", "127.0.0.1", "::1"].includes(endpointUrl.hostname);
+		if (endpoint.value && (!endpoint.validity.valid || (endpointUrl?.protocol !== "https:" && !isLocalHttp))) {
+			status.textContent = "Enter an HTTPS endpoint, or a local http://localhost endpoint for development.";
 			status.className = "error";
 			return;
 		}
