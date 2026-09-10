@@ -211,6 +211,18 @@
 		clearTimeout(selectionTimer);
 		selectionTimer = setTimeout(showSelectionCard, 80);
 	});
+	document.addEventListener("scroll", removeCard, { passive: true });
+})();
+
+const settingsForm = document.querySelector("#settings-form");
+if (settingsForm) {
+	document.querySelector("#open-reader")?.addEventListener("click", () => {
+		chrome.tabs.create({ url: chrome.runtime.getURL("viewer.html") });
+	});
+
+	const endpoint = document.querySelector("#endpoint");
+	const apiKey = document.querySelector("#api-key");
+	const status = document.querySelector("#status");
 
 	document.addEventListener("scroll", removeCard, { passive: true });
 

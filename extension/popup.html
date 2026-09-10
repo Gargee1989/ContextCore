@@ -22,14 +22,13 @@
 <body>
 	<h1>ContentCore Settings</h1>
 	<form id="settings-form">
-		<label for="endpoint">LLM API Endpoint (HTTPS):</label>
-		<input type="url" id="endpoint" placeholder="https://api.example.com/explain" required>
-
-		<label for="api-key">API Key:</label>
-		<input type="password" id="api-key" placeholder="Enter your API key">
-
-		<button type="submit">Save Settings</button>
-		<div id="status"></div>
+		<button id="open-reader" type="button">Open PDF reader</button>
+		<label for="endpoint">Lookup endpoint</label>
+		<input id="endpoint" type="url" placeholder="https://your-api.example/define" autocomplete="url">
+		<label for="api-key">API key <span>(optional)</span></label>
+		<input id="api-key" type="password" placeholder="Stored locally in Chrome" autocomplete="off">
+		<button type="submit">Save settings</button>
+		<div id="status" role="status" aria-live="polite"></div>
 	</form>
 	<a class="reader-link" href="pdf-viewer.html" target="_blank">Open ContentCore PDF Reader</a>
 
