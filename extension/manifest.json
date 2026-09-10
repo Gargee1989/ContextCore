@@ -1,12 +1,12 @@
 {
 	"manifest_version": 3,
-	"name": "ContentCore",
+	"name": "Context Core",
 	"version": "0.1.0",
 	"description": "Get context-aware explanations for words while reading.",
 	"permissions": ["storage"],
 	"host_permissions": ["<all_urls>"],
 	"action": {
-		"default_title": "ContentCore settings",
+		"default_title": "Context Core settings",
 		"default_popup": "popup.html"
 	},
 	"content_scripts": [
