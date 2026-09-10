@@ -1,14 +1,17 @@
 """
 ContentCore Backend - LLM Service
 
-Handles LLM communication with NVIDIA NIM or OpenAI, response parsing,
+Handles LLM communication with Gemini, NVIDIA NIM, or OpenAI, response parsing,
 strict JSON validation, error translation, and privacy protection.
 """
+
+from __future__ import annotations
 
 import json
 import logging
 import re
 from typing import Any
+import httpx
 from openai import OpenAI, RateLimitError, APITimeoutError, OpenAIError
 from pydantic import ValidationError
 
@@ -44,8 +47,11 @@ class LLMService:
     def __init__(self) -> None:
         self._client: OpenAI | None = None
 
-    def get_client(self) -> OpenAI:
+    def get_client(self) -> OpenAI | None:
         """Initializes or returns the cached OpenAI-compatible client."""
+        if settings.is_gemini:
+            return None
+
         if self._client is not None:
             return self._client
 
@@ -55,7 +61,7 @@ class LLMService:
                 "The definition service is temporarily unavailable. Please try again."
             )
 
-        if settings.is_nvidia and settings.base_url:
+        if settings.base_url:
             self._client = OpenAI(
                 base_url=settings.base_url,
                 api_key=settings.api_key,
@@ -169,6 +175,9 @@ class LLMService:
             f"Dispatching definition request: target_len={len(target)}, context_len={len(context)}, provider={settings.provider_name}"
         )
 
+        if settings.is_gemini and client is None:
+            return self.define_with_gemini(user_message)
+
         try:
             completion = client.chat.completions.create(
                 model=settings.model,
@@ -218,6 +227,42 @@ class LLMService:
             raise DefinitionUnavailableException(
                 "The definition service is temporarily unavailable. Please try again."
             ) from unexpected_err
+
+    def define_with_gemini(self, user_message: str) -> DefineResponse:
+        """Call Gemini's native generateContent API."""
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.model}:generateContent"
+        payload = {
+            "system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+            "contents": [{"role": "user", "parts": [{"text": user_message}]}],
+            "generationConfig": {
+                "temperature": settings.llm_temperature,
+                "maxOutputTokens": settings.llm_max_tokens,
+                "responseMimeType": "application/json",
+            },
+        }
+
+        try:
+            response = httpx.post(
+                url,
+                headers={"x-goog-api-key": settings.api_key},
+                json=payload,
+                timeout=settings.llm_timeout_seconds,
+            )
+            response.raise_for_status()
+            response_data = response.json()
+            raw_content = response_data["candidates"][0]["content"]["parts"][0]["text"]
+            return self.parse_and_validate_response(raw_content)
+        except httpx.TimeoutException as timeout_error:
+            raise ServiceTimeoutException(
+                "The definition service took too long to respond. Please try again."
+            ) from timeout_error
+        except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as provider_error:
+            logger.warning(
+                f"Gemini provider request failed: {type(provider_error).__name__}"
+            )
+            raise DefinitionUnavailableException(
+                "The definition service is temporarily unavailable. Please try again."
+            ) from provider_error
 
 
 # Singleton instance

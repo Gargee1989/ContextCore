@@ -2,27 +2,40 @@
 	"use strict";
 
 	const CACHE_KEY = "contentCoreLookupCache";
-	const MAX_CONTEXT_LENGTH = 1200;
+	const MAX_CONTEXT_LENGTH = 5000;
 	let selectionTimer;
 	let selectedText = "";
 	let selectedContext = "";
+	let selectionData = null;
 	let currentDefinition = "";
 	let lookupCard;
 
 	const clean = (value) => value.replace(/\s+/g, " ").trim();
 
 	function getContext(selection) {
-		const text = clean(document.body?.innerText || "");
 		const selected = clean(selection.toString());
+		const anchor = selection.anchorNode;
+		const anchorElement = anchor?.nodeType === Node.ELEMENT_NODE ? anchor : anchor?.parentElement;
+		const contextElement = anchorElement?.closest("p, li, blockquote, article, section") || anchorElement;
+		const text = clean(contextElement?.innerText || contextElement?.textContent || document.body?.innerText || "");
 		if (!selected || !text) return selected;
 
 		const index = text.toLowerCase().indexOf(selected.toLowerCase());
 		if (index < 0) return text.slice(0, MAX_CONTEXT_LENGTH);
+		if (text.length <= MAX_CONTEXT_LENGTH) return text;
 
-		const half = Math.floor((MAX_CONTEXT_LENGTH - selected.length) / 2);
-		const start = Math.max(0, index - half);
-		const end = Math.min(text.length, index + selected.length + half);
-		return text.slice(start, end).trim();
+		const sentenceStart = Math.max(
+			text.lastIndexOf(".", index - 1),
+			text.lastIndexOf("!", index - 1),
+			text.lastIndexOf("?", index - 1)
+		) + 1;
+		const sentenceEndCandidates = [
+			text.indexOf(".", index + selected.length),
+			text.indexOf("!", index + selected.length),
+			text.indexOf("?", index + selected.length)
+		].filter((position) => position >= 0);
+		const sentenceEnd = sentenceEndCandidates.length ? Math.min(...sentenceEndCandidates) + 1 : text.length;
+		return text.slice(sentenceStart, sentenceEnd).trim().slice(0, MAX_CONTEXT_LENGTH);
 	}
 
 	function removeCard() {
@@ -33,6 +46,9 @@
 	function createCard(rect, context) {
 		removeCard();
 		selectedContext = context;
+		currentDefinition = "";
+		selectionData = { word: selectedText, context: selectedContext };
+		console.log("[ContentCore] Selection captured:", selectionData);
 		lookupCard = document.createElement("section");
 		lookupCard.setAttribute("data-contentcore", "lookup-card");
 		lookupCard.innerHTML = `
@@ -125,7 +141,7 @@
 					"Content-Type": "application/json",
 					...(settings.contentCoreApiKey ? { Authorization: `Bearer ${settings.contentCoreApiKey}` } : {})
 				},
-				body: JSON.stringify({ word: selectedText, context })
+				body: JSON.stringify(selectionData)
 			});
 
 			if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -157,8 +173,8 @@
 		const saved = (await chrome.storage.local.get("contentCoreSavedWords")).contentCoreSavedWords || [];
 		if (!saved.some((item) => item.word === selectedText && item.url === location.href)) {
 			saved.unshift({
-				word: selectedText,
-					context: selectedContext,
+					word: selectionData.word,
+					context: selectionData.context,
 					definition: currentDefinition,
 				url: location.href,
 				savedAt: Date.now()

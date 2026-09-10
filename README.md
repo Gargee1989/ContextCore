@@ -22,3 +22,5 @@ http://127.0.0.1:8000/define
 ```
 
 The extension sends `POST /define` with `word` and `context`. The backend accepts the word aliases used by the extension and returns a response containing `meaning`, which the extension displays as the explanation. The extension API key field is optional for this local FastAPI setup.
+
+The backend supports Google Gemini, OpenAI, and NVIDIA NIM. Set the matching provider key in `backend/.env`; do not put provider keys in the extension.
