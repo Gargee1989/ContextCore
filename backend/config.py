@@ -1,8 +1,8 @@
 """
 ContentCore Backend Configuration
 
-Loads environment variables, defines operational thresholds, and configures
-the LLM provider (NVIDIA NIM or OpenAI) without exposing credentials.
+    Loads environment variables, defines operational thresholds, and configures
+    the LLM provider (Gemini, NVIDIA NIM, or OpenAI) without exposing credentials.
 """
 
 from __future__ import annotations
@@ -27,6 +27,7 @@ else:
 
 # Placeholder markers
 PLACEHOLDERS = {
+    "your_gemini_api_key_here",
     "your_openai_api_key_here",
     "your_nvidia_api_key_here",
     "nvapi-yourActualKeyHere",
@@ -38,30 +39,41 @@ class Settings:
     """Application settings and LLM configuration."""
 
     def __init__(self) -> None:
+        self.gemini_api_key: str | None = os.getenv("GEMINI_API_KEY")
         self.nvidia_api_key: str | None = os.getenv("NVIDIA_API_KEY")
         self.openai_api_key: str | None = os.getenv("OPENAI_API_KEY")
 
         # Resolve primary key
-        raw_key = self.nvidia_api_key or self.openai_api_key or ""
+        raw_key = self.gemini_api_key or self.nvidia_api_key or self.openai_api_key or ""
         self._api_key: str = raw_key.strip()
 
         # Provider detection
+        self.is_gemini: bool = bool(self.gemini_api_key)
         self.is_nvidia: bool = bool(
             self.nvidia_api_key
             or (self._api_key and self._api_key.startswith("nvapi-"))
         )
 
-        # Base URL: NVIDIA requires base_url, OpenAI defaults to standard endpoint
+        # Gemini and NVIDIA use OpenAI-compatible endpoints.
+        default_gemini_url = "https://generativelanguage.googleapis.com/v1beta/openai/"
         default_nvidia_url = "https://integrate.api.nvidia.com/v1"
+        self.gemini_base_url: str = os.getenv("GEMINI_BASE_URL", default_gemini_url)
         self.nvidia_base_url: str = os.getenv("NVIDIA_BASE_URL", default_nvidia_url)
-        self.base_url: str | None = self.nvidia_base_url if self.is_nvidia else None
+        self.base_url: str | None = (
+            self.gemini_base_url if self.is_gemini else
+            self.nvidia_base_url if self.is_nvidia else None
+        )
 
         # Model resolution
         default_model = (
+            "gemini-3.6-flash" if self.is_gemini else
             "meta/llama-3.2-11b-vision-instruct" if self.is_nvidia else "gpt-4o-mini"
         )
         self.model: str = os.getenv("LLM_MODEL", default_model)
-        self.provider_name: str = "NVIDIA NIM" if self.is_nvidia else "OpenAI"
+        self.provider_name: str = (
+            "Google Gemini" if self.is_gemini else
+            "NVIDIA NIM" if self.is_nvidia else "OpenAI"
+        )
 
         # Operational limits & hyper-parameters
         self.max_target_chars: int = int(os.getenv("MAX_TARGET_CHARS", "500"))

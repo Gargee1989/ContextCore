@@ -66,6 +66,15 @@ Create this file:
 backend/.env
 ```
 
+For Google Gemini:
+
+```env
+GEMINI_API_KEY=put_your_real_key_here
+LLM_MODEL=gemini-3.6-flash
+```
+
+The backend uses Gemini's OpenAI-compatible endpoint automatically. You can override it with `GEMINI_BASE_URL` if needed.
+
 For OpenAI:
 
 ```env
