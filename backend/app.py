@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from backend.config import settings
+from backend.config import settings, SUPPORTED_PROVIDERS
 from backend.exceptions import (
     ContentCoreException,
     InvalidInputException,
@@ -165,8 +165,28 @@ async def define_text(request: Request) -> JSONResponse:
     # Validate and normalize payload
     req = DefineRequest.model_validate(payload)
 
+    # Extract direct credentials from payload or request headers
+    auth_header = request.headers.get("authorization") or ""
+    header_api_key = None
+    if auth_header.lower().startswith("bearer "):
+        header_api_key = auth_header[7:].strip()
+    elif auth_header:
+        header_api_key = auth_header.strip()
+
+    direct_api_key = req.api_key or request.headers.get("x-api-key") or header_api_key
+    direct_provider = req.provider or request.headers.get("x-provider")
+    direct_model = req.model or request.headers.get("x-model")
+    direct_base_url = req.base_url or request.headers.get("x-base-url")
+
     # Call LLM contextual engine
-    result: DefineResponse = llm_service.define(target=req.target, context=req.context)
+    result: DefineResponse = llm_service.define(
+        target=req.target,
+        context=req.context,
+        api_key=direct_api_key,
+        provider=direct_provider,
+        model=direct_model,
+        base_url=direct_base_url,
+    )
 
     return JSONResponse(
         status_code=200,
@@ -182,6 +202,8 @@ async def health_check() -> dict[str, Any]:
         "provider": settings.provider_name,
         "model": settings.model,
         "configured": settings.is_configured,
+        "supported_providers": SUPPORTED_PROVIDERS,
+        "accepts_direct_input": True,
     }
 
 

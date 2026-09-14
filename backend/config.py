@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Any
 from dotenv import load_dotenv
 
 # Directory paths
@@ -33,6 +34,109 @@ PLACEHOLDERS = {
     "nvapi-yourActualKeyHere",
     "sk-proj-yourActualKeyHere",
 }
+
+# The 3 supported LLM API providers from STEP.md
+PROVIDER_GEMINI = "Google Gemini"
+PROVIDER_OPENAI = "OpenAI"
+PROVIDER_NVIDIA = "NVIDIA NIM"
+
+SUPPORTED_PROVIDERS = [
+    PROVIDER_GEMINI,
+    PROVIDER_OPENAI,
+    PROVIDER_NVIDIA,
+]
+
+DEFAULT_MODELS = {
+    PROVIDER_GEMINI: "gemini-3.6-flash",
+    PROVIDER_OPENAI: "gpt-4o-mini",
+    PROVIDER_NVIDIA: "meta/llama-3.2-11b-vision-instruct",
+}
+
+DEFAULT_BASE_URLS = {
+    PROVIDER_GEMINI: "https://generativelanguage.googleapis.com/v1beta/openai/",
+    PROVIDER_OPENAI: None,
+    PROVIDER_NVIDIA: "https://integrate.api.nvidia.com/v1",
+}
+
+
+def normalize_provider_name(provider: str | None) -> str | None:
+    """Normalizes various user-input provider aliases to canonical names."""
+    if not provider:
+        return None
+    p = provider.strip().lower().replace("_", " ").replace("-", " ")
+    if "gemini" in p or "google" in p:
+        return PROVIDER_GEMINI
+    if "nvidia" in p or "nim" in p:
+        return PROVIDER_NVIDIA
+    if "openai" in p:
+        return PROVIDER_OPENAI
+    return provider.strip()
+
+
+def detect_provider(api_key: str | None, explicit_provider: str | None = None) -> str:
+    """
+    Determines provider from explicit provider input, API key format, or settings fallback.
+    """
+    normalized = normalize_provider_name(explicit_provider)
+    if normalized in SUPPORTED_PROVIDERS:
+        return normalized
+
+    if api_key:
+        key = api_key.strip()
+        if key.startswith("nvapi-"):
+            return PROVIDER_NVIDIA
+        if key.startswith("AIza"):
+            return PROVIDER_GEMINI
+        if key.startswith("sk-"):
+            return PROVIDER_OPENAI
+
+    return settings.provider_name
+
+
+def resolve_llm_config(
+    api_key: str | None = None,
+    provider: str | None = None,
+    model: str | None = None,
+    base_url: str | None = None,
+) -> dict[str, Any]:
+    """
+    Resolves configuration for direct API calls using input parameters,
+    falling back to settings/.env when parameters are omitted.
+    """
+    has_input_key = bool(api_key and api_key.strip())
+    resolved_key = api_key.strip() if has_input_key else settings.api_key
+    resolved_provider = detect_provider(resolved_key, explicit_provider=provider)
+
+    # Base URL resolution
+    if base_url is not None and base_url.strip():
+        resolved_base_url = base_url.strip()
+    elif resolved_provider == PROVIDER_GEMINI:
+        resolved_base_url = settings.gemini_base_url or DEFAULT_BASE_URLS[PROVIDER_GEMINI]
+    elif resolved_provider == PROVIDER_NVIDIA:
+        resolved_base_url = settings.nvidia_base_url or DEFAULT_BASE_URLS[PROVIDER_NVIDIA]
+    else:
+        resolved_base_url = None
+
+    # Model resolution
+    if model and model.strip():
+        resolved_model = model.strip()
+    elif not has_input_key and resolved_provider == settings.provider_name and os.getenv("LLM_MODEL"):
+        resolved_model = settings.model
+    else:
+        resolved_model = DEFAULT_MODELS.get(resolved_provider, "gpt-4o-mini")
+
+    is_configured = bool(resolved_key and resolved_key not in PLACEHOLDERS)
+
+    return {
+        "api_key": resolved_key,
+        "provider": resolved_provider,
+        "model": resolved_model,
+        "base_url": resolved_base_url,
+        "is_configured": is_configured,
+        "is_gemini": resolved_provider == PROVIDER_GEMINI,
+        "is_nvidia": resolved_provider == PROVIDER_NVIDIA,
+        "is_openai": resolved_provider == PROVIDER_OPENAI,
+    }
 
 
 class Settings:

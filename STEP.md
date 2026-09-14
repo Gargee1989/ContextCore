@@ -58,7 +58,17 @@ The backend uses:
 - python-dotenv
 - pytest
 
-## 4. Add the LLM provider key
+## 4. Configure an LLM provider
+
+The backend supports the 3 providers listed below:
+
+- Google Gemini
+- OpenAI
+- NVIDIA NIM
+
+Provider credentials can be supplied directly in the extension settings. Enter the provider, API key, and optional model under **LLM Provider (Direct Call)**. The extension sends these values in each `/define` request.
+
+The backend also supports `.env` configuration as a fallback for server-side deployments. Create this file only when you want the backend to select a provider without request-level credentials:
 
 Create this file:
 
@@ -145,7 +155,7 @@ A successful response contains fields such as:
 }
 ```
 
-If the response says the definition service is unavailable, check that the provider key exists in `backend/.env` and restart Uvicorn.
+If the response says the definition service is unavailable, verify the direct provider/API key/model values or, for fallback mode, check the provider key in `backend/.env` and restart Uvicorn.
 
 ## 7. Run backend tests
 
@@ -176,8 +186,10 @@ All tests should pass before pushing backend changes.
 http://127.0.0.1:8000/define
 ```
 
-8. Leave the extension API key empty for the local FastAPI setup.
-9. Click **Save settings**.
+8. Under **LLM Provider (Direct Call)**, select Google Gemini, OpenAI, or NVIDIA NIM.
+9. Enter that provider's API key and optionally set a model. Leave these fields empty to use the backend `.env` fallback.
+10. Leave **Endpoint API key** empty for the local FastAPI setup.
+11. Click **Save settings**.
 
 ## 9. Test the complete flow
 
@@ -204,14 +216,14 @@ Chrome's built-in PDF viewer is isolated from the extension. Use the ContentCore
 ## 10. Files and their roles
 
 - `backend/app.py`: FastAPI application with `POST /define` and `GET /health`.
-- `backend/config.py`: Reads provider keys and backend settings from `.env`.
+- `backend/config.py`: Resolves direct request credentials and `.env` fallback settings.
 - `backend/schemas.py`: Validates request and response data.
 - `backend/prompts.py`: Contains the LLM instructions.
 - `backend/services/llm_service.py`: Calls the configured LLM provider.
 - `backend/exceptions.py`: Defines backend error responses.
 - `backend/requirements.txt`: Python dependencies.
 - `extension/manifest.json`: Browser extension configuration.
-- `extension/popup.html`: Endpoint and API key settings page.
+- `extension/popup.html`: Endpoint, provider, model, and API key settings page.
 - `extension/popup.js`: Saves extension settings locally.
 - `extension/content.js`: Webpage selection, context extraction, lookup, caching, and Save.
 - `extension/pdf-viewer.html`: Dedicated PDF reader page.

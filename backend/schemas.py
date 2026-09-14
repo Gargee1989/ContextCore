@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from backend.config import settings
+from backend.config import SUPPORTED_PROVIDERS, normalize_provider_name, settings
 from backend.exceptions import InvalidInputException
 
 
@@ -18,10 +18,15 @@ class DefineRequest(BaseModel):
     
     Accepts target text under aliases: 'word', 'phrase', 'target', or 'selectedText'.
     Normalizes selected text to `target` and validates `context`.
+    Optionally accepts direct credentials/config: 'api_key', 'provider', 'model', 'base_url'.
     """
 
     target: str = Field(..., description="Normalized selected text")
     context: str = Field(..., description="Surrounding passage or sentence")
+    api_key: str | None = Field(default=None, description="Direct LLM API key")
+    provider: str | None = Field(default=None, description="LLM provider: Google Gemini, OpenAI, or NVIDIA NIM")
+    model: str | None = Field(default=None, description="Model name to use")
+    base_url: str | None = Field(default=None, description="Optional custom base URL")
 
     model_config = ConfigDict(extra="ignore")
 
@@ -72,10 +77,44 @@ class DefineRequest(BaseModel):
                 "Selected text and its surrounding passage are required."
             )
 
-        return {
+        validated: dict[str, Any] = {
             "target": target,
             "context": context,
         }
+
+        # Extract optional direct input credentials and provider/model configurations
+        raw_api_key = data.get("api_key") or data.get("apiKey") or data.get("key")
+        if isinstance(raw_api_key, str) and raw_api_key.strip():
+            validated["api_key"] = raw_api_key.strip()
+
+        raw_provider = (
+            data.get("provider")
+            or data.get("provider_name")
+            or data.get("providerName")
+            or data.get("llm_provider")
+        )
+        if isinstance(raw_provider, str) and raw_provider.strip():
+            normalized_provider = normalize_provider_name(raw_provider)
+            if normalized_provider not in SUPPORTED_PROVIDERS:
+                raise InvalidInputException(
+                    "Provider must be Google Gemini, OpenAI, or NVIDIA NIM."
+                )
+            validated["provider"] = normalized_provider
+
+        raw_model = (
+            data.get("model")
+            or data.get("model_name")
+            or data.get("modelName")
+            or data.get("llm_model")
+        )
+        if isinstance(raw_model, str) and raw_model.strip():
+            validated["model"] = raw_model.strip()
+
+        raw_base_url = data.get("base_url") or data.get("baseUrl")
+        if isinstance(raw_base_url, str) and raw_base_url.strip():
+            validated["base_url"] = raw_base_url.strip()
+
+        return validated
 
 
 class DefineResponse(BaseModel):

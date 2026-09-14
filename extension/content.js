@@ -127,7 +127,7 @@
 		setStatus("Fetching...");
 
 		try {
-			const settings = await chrome.storage.local.get(["contentCoreEndpoint", "contentCoreApiKey"]);
+			const settings = await chrome.storage.local.get(["contentCoreEndpoint", "contentCoreApiKey", "contentCoreLlmApiKey", "contentCoreProvider", "contentCoreLlmModel"]);
 
 			if (!settings.contentCoreEndpoint) {
 				showMessage("No API endpoint configured. Add one in ContentCore settings.", true);
@@ -135,13 +135,18 @@
 				return;
 			}
 
+			const payload = { ...selectionData };
+			if (settings.contentCoreLlmApiKey) payload.api_key = settings.contentCoreLlmApiKey;
+			if (settings.contentCoreProvider) payload.provider = settings.contentCoreProvider;
+			if (settings.contentCoreLlmModel) payload.model = settings.contentCoreLlmModel;
+
 			const response = await fetch(settings.contentCoreEndpoint, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
 					...(settings.contentCoreApiKey ? { Authorization: `Bearer ${settings.contentCoreApiKey}` } : {})
 				},
-				body: JSON.stringify(selectionData)
+				body: JSON.stringify(payload)
 			});
 
 			if (!response.ok) throw new Error(`HTTP ${response.status}`);
