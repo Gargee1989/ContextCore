@@ -9,7 +9,8 @@
 		body { font: 14px Arial, sans-serif; width: 360px; margin: 0; padding: 16px; background: #f8f7f1; color: #17211b; }
 		h1 { font: 18px/1.2 Arial, sans-serif; color: #35644a; margin: 0 0 16px; }
 		label { display: block; margin-top: 12px; font-weight: 600; color: #35644a; }
-		input { width: 100%; padding: 8px; margin-top: 4px; border: 1px solid #c6c9bb; border-radius: 4px; font: 13px Arial, sans-serif; }
+		label span { font-weight: 400; font-size: 12px; color: #666; }
+		input, select { width: 100%; padding: 8px; margin-top: 4px; border: 1px solid #c6c9bb; border-radius: 4px; font: 13px Arial, sans-serif; background: white; }
 		button { width: 100%; padding: 10px; margin-top: 16px; background: #35644a; color: white; border: none; border-radius: 4px; cursor: pointer; font: 600 13px Arial, sans-serif; }
 		button:hover { background: #2d5239; }
 		#status { margin-top: 12px; padding: 8px; border-radius: 4px; font-size: 12px; display: none; }
@@ -17,15 +18,35 @@
 		#status.error { background: #f8d7da; color: #721c24; display: block; }
 		.info { margin-top: 12px; padding: 8px; background: #e7f3ff; color: #004085; border-radius: 4px; font-size: 12px; line-height: 1.4; }
 		.reader-link { display: block; margin-top: 12px; color: #35644a; font-size: 12px; text-align: center; }
+		.section-label { margin-top: 16px; font-size: 11px; font-weight: 600; color: #999; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #e0e0d8; padding-bottom: 4px; }
 	</style>
 </head>
 <body>
 	<h1>ContentCore Settings</h1>
 	<form id="settings-form">
+		<div class="section-label">Backend Endpoint</div>
 		<label for="endpoint">Lookup endpoint</label>
 		<input id="endpoint" type="url" placeholder="http://127.0.0.1:8000/define" autocomplete="url">
-		<label for="api-key">API key <span>(optional for FastAPI)</span></label>
+
+		<div class="section-label">LLM Provider (Direct Call)</div>
+		<label for="provider">Provider</label>
+		<select id="provider">
+			<option value="">Auto-detect / Use backend .env</option>
+			<option value="Google Gemini">Google Gemini</option>
+			<option value="OpenAI">OpenAI</option>
+			<option value="NVIDIA NIM">NVIDIA NIM</option>
+		</select>
+
+		<label for="llm-api-key">LLM API key <span>(sent with each request)</span></label>
+		<input id="llm-api-key" type="password" placeholder="Your Gemini / OpenAI / NVIDIA key" autocomplete="off">
+
+		<label for="llm-model">Model <span>(optional; uses provider default if empty)</span></label>
+		<input id="llm-model" type="text" placeholder="e.g. gemini-3.6-flash, gpt-4o-mini" autocomplete="off">
+
+		<div class="section-label">Endpoint Auth (optional)</div>
+		<label for="api-key">Endpoint API key <span>(only if your server requires it)</span></label>
 		<input id="api-key" type="password" placeholder="Only needed if your endpoint requires it" autocomplete="off">
+
 		<button type="submit">Save settings</button>
 		<div id="status" role="status" aria-live="polite"></div>
 	</form>

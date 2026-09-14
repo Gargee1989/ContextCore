@@ -15,7 +15,13 @@ import httpx
 from openai import OpenAI, RateLimitError, APITimeoutError, OpenAIError
 from pydantic import ValidationError
 
-from backend.config import settings
+from backend.config import (
+    settings,
+    resolve_llm_config,
+    PROVIDER_GEMINI,
+    PROVIDER_OPENAI,
+    PROVIDER_NVIDIA,
+)
 from backend.prompts import SYSTEM_PROMPT, build_user_message
 from backend.schemas import DefineResponse
 from backend.exceptions import (
@@ -74,6 +80,23 @@ class LLMService:
             )
 
         return self._client
+
+    def create_client(
+        self,
+        api_key: str,
+        base_url: str | None = None,
+    ) -> OpenAI:
+        """Creates an OpenAI-compatible client for direct calling with input credentials."""
+        if base_url:
+            return OpenAI(
+                base_url=base_url,
+                api_key=api_key,
+                timeout=settings.llm_timeout_seconds,
+            )
+        return OpenAI(
+            api_key=api_key,
+            timeout=settings.llm_timeout_seconds,
+        )
 
     def clean_markdown_fences(self, content: str) -> str:
         """Strips surrounding Markdown code fences if returned by the LLM."""
@@ -162,25 +185,69 @@ class LLMService:
                 "The definition service is temporarily unavailable. Please try again."
             ) from val_err
 
-    def define(self, target: str, context: str) -> DefineResponse:
+    def define(
+        self,
+        target: str,
+        context: str,
+        api_key: str | None = None,
+        provider: str | None = None,
+        model: str | None = None,
+        base_url: str | None = None,
+    ) -> DefineResponse:
         """
         Invokes the LLM to get the contextual definition of target in context.
-        
+        Supports direct input for provider, API key, model, and base URL,
+        falling back to backend/.env configuration when omitted.
+
         Note: The passage content is never logged or stored to protect reader privacy.
         """
-        client = self.get_client()
         user_message = build_user_message(target, context)
+        has_direct_input = any(x is not None for x in (api_key, provider, model, base_url))
 
-        logger.info(
-            f"Dispatching definition request: target_len={len(target)}, context_len={len(context)}, provider={settings.provider_name}"
-        )
+        if has_direct_input:
+            cfg = resolve_llm_config(
+                api_key=api_key,
+                provider=provider,
+                model=model,
+                base_url=base_url,
+            )
+            if not cfg["is_configured"]:
+                logger.error("LLM API key is unconfigured or invalid.")
+                raise DefinitionUnavailableException(
+                    "The definition service is temporarily unavailable. Please try again."
+                )
 
-        if settings.is_gemini and client is None:
-            return self.define_with_gemini(user_message)
+            target_provider = cfg["provider"]
+            target_model = cfg["model"]
+            target_key = cfg["api_key"]
+            target_base_url = cfg["base_url"]
+
+            logger.info(
+                f"Dispatching definition request (direct input): target_len={len(target)}, context_len={len(context)}, provider={target_provider}, model={target_model}"
+            )
+
+            client = self.create_client(api_key=target_key, base_url=target_base_url)
+        else:
+            client = self.get_client()
+            target_model = settings.model
+            target_provider = settings.provider_name
+            target_key = settings.api_key
+
+            logger.info(
+                f"Dispatching definition request: target_len={len(target)}, context_len={len(context)}, provider={target_provider}"
+            )
+
+            if settings.is_gemini and client is None:
+                return self.define_with_gemini(
+                    user_message,
+                    api_key=target_key,
+                    model=target_model,
+                    base_url=cfg["base_url"],
+                )
 
         try:
             completion = client.chat.completions.create(
-                model=settings.model,
+                model=target_model,
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": user_message},
@@ -217,6 +284,17 @@ class LLMService:
             raise
 
         except OpenAIError as api_err:
+            # If Google Gemini fails via OpenAI client, attempt native generateContent as fallback
+            if (has_direct_input and cfg["is_gemini"]) or (not has_direct_input and settings.is_gemini):
+                try:
+                    return self.define_with_gemini(
+                        user_message,
+                        api_key=target_key,
+                        model=target_model,
+                        base_url=cfg["base_url"] if has_direct_input else settings.gemini_base_url,
+                    )
+                except Exception:
+                    pass
             logger.warning(f"Upstream provider error: {type(api_err).__name__}")
             raise DefinitionUnavailableException(
                 "The definition service is temporarily unavailable. Please try again."
@@ -228,9 +306,21 @@ class LLMService:
                 "The definition service is temporarily unavailable. Please try again."
             ) from unexpected_err
 
-    def define_with_gemini(self, user_message: str) -> DefineResponse:
+    def define_with_gemini(
+        self,
+        user_message: str,
+        api_key: str | None = None,
+        model: str | None = None,
+        base_url: str | None = None,
+    ) -> DefineResponse:
         """Call Gemini's native generateContent API."""
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.model}:generateContent"
+        effective_key = api_key or settings.api_key
+        effective_model = model or settings.model
+        effective_base_url = base_url or "https://generativelanguage.googleapis.com/v1beta/openai/"
+        native_base_url = "https://generativelanguage.googleapis.com/v1beta"
+        if "/openai" in effective_base_url:
+            native_base_url = effective_base_url.split("/openai", 1)[0]
+        url = f"{native_base_url.rstrip('/')}/models/{effective_model}:generateContent"
         payload = {
             "system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]},
             "contents": [{"role": "user", "parts": [{"text": user_message}]}],
@@ -244,7 +334,7 @@ class LLMService:
         try:
             response = httpx.post(
                 url,
-                headers={"x-goog-api-key": settings.api_key},
+                headers={"x-goog-api-key": effective_key},
                 json=payload,
                 timeout=settings.llm_timeout_seconds,
             )

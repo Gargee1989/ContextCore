@@ -1,144 +1,347 @@
 """
-ContentCore - Backend LLM API Connection Test
+ContentCore - Backend LLM API Direct Connection & Test
 
-This script tests the connectivity to the configured LLM API (NVIDIA NIM or OpenAI):
-1. Loads environment variables from backend/.env
-2. Reads NVIDIA_API_KEY / OPENAI_API_KEY securely from the environment
-3. Automatically detects NVIDIA NIM or standard OpenAI endpoint
-4. Makes a simple API call (Chat Completion)
-5. Prints the response
-6. Handles missing API key and errors gracefully
+Directly calls the configured LLM API provider by taking inputs (provider, API key, model),
+or falling back to environment variables from backend/.env.
+
+The 3 supported providers (defined in STEP.md) are:
+1. Google Gemini (default model: gemini-3.6-flash)
+2. OpenAI (default model: gpt-4o-mini)
+3. NVIDIA NIM (default model: meta/llama-3.2-11b-vision-instruct)
 """
 
+from __future__ import annotations
+
+import argparse
 import os
 import sys
 from pathlib import Path
+from typing import Any
 from dotenv import load_dotenv
+import httpx
 from openai import OpenAI, AuthenticationError, APIConnectionError, OpenAIError
 
-# ---------------------------------------------------------------------------
-# Step 1: Load Environment Variables
-# ---------------------------------------------------------------------------
-# Locate the directory containing this script (ContentCore/backend)
+# Directory paths
 BACKEND_DIR = Path(__file__).resolve().parent
 ENV_FILE_PATH = BACKEND_DIR / ".env"
 
-# Explicitly load environment variables from backend/.env
 if ENV_FILE_PATH.exists():
     load_dotenv(dotenv_path=ENV_FILE_PATH)
 else:
-    # Fallback to default search if file is in another standard location
     load_dotenv()
 
-# ---------------------------------------------------------------------------
-# Step 2: Read and Validate API Key
-# ---------------------------------------------------------------------------
-# Read the API key securely from environment variables (never hardcoded in source)
-nvidia_key = os.getenv("NVIDIA_API_KEY")
-openai_key = os.getenv("OPENAI_API_KEY")
-api_key = nvidia_key or openai_key
+# The 3 supported LLM API providers from STEP.md
+PROVIDER_GEMINI = "Google Gemini"
+PROVIDER_OPENAI = "OpenAI"
+PROVIDER_NVIDIA = "NVIDIA NIM"
 
-# Placeholder indicators
-PLACEHOLDERS = ["your_openai_api_key_here", "your_nvidia_api_key_here"]
+SUPPORTED_PROVIDERS = [PROVIDER_GEMINI, PROVIDER_OPENAI, PROVIDER_NVIDIA]
 
-if not api_key or api_key.strip() == "" or api_key.strip() in PLACEHOLDERS:
-    print("=" * 65)
-    print("[ERROR] Missing or unconfigured API key!")
-    print("=" * 65)
-    print("To fix this issue:")
-    print(f"1. Open the file: {ENV_FILE_PATH}")
-    print("2. Set your API key:")
-    print("   NVIDIA_API_KEY=nvapi-...")
-    print("   # or OPENAI_API_KEY=sk-proj-...")
-    print("3. Save the file and rerun this test script.")
-    print("=" * 65)
-    sys.exit(1)
+PROVIDER_MAP = {
+    "1": PROVIDER_GEMINI,
+    "gemini": PROVIDER_GEMINI,
+    "google": PROVIDER_GEMINI,
+    "google gemini": PROVIDER_GEMINI,
 
-# Detect whether this is an NVIDIA API key or standard OpenAI key
-is_nvidia = api_key.startswith("nvapi-") or bool(nvidia_key)
-base_url = os.getenv("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1") if is_nvidia else None
-default_model = "meta/llama-3.2-11b-vision-instruct" if is_nvidia else "gpt-4o-mini"
-model_name = os.getenv("LLM_MODEL", default_model)
-provider_name = "NVIDIA NIM" if is_nvidia else "OpenAI"
+    "2": PROVIDER_OPENAI,
+    "openai": PROVIDER_OPENAI,
+
+    "3": PROVIDER_NVIDIA,
+    "nvidia": PROVIDER_NVIDIA,
+    "nim": PROVIDER_NVIDIA,
+    "nvidia nim": PROVIDER_NVIDIA,
+}
+
+DEFAULT_MODELS = {
+    PROVIDER_GEMINI: "gemini-3.6-flash",
+    PROVIDER_OPENAI: "gpt-4o-mini",
+    PROVIDER_NVIDIA: "meta/llama-3.2-11b-vision-instruct",
+}
+
+DEFAULT_BASE_URLS = {
+    PROVIDER_GEMINI: "https://generativelanguage.googleapis.com/v1beta/openai/",
+    PROVIDER_OPENAI: None,
+    PROVIDER_NVIDIA: "https://integrate.api.nvidia.com/v1",
+}
+
+PLACEHOLDERS = {
+    "your_gemini_api_key_here",
+    "your_openai_api_key_here",
+    "your_nvidia_api_key_here",
+    "nvapi-yourActualKeyHere",
+    "sk-proj-yourActualKeyHere",
+}
 
 
-# ---------------------------------------------------------------------------
-# Step 3: Initialize Client and Execute API Call
-# ---------------------------------------------------------------------------
-def test_connection():
-    """Initializes the LLM client, sends a test prompt, and prints the result."""
-    try:
-        print(f"Loading configuration from: {ENV_FILE_PATH.name}")
-        print(f"Provider detected: {provider_name}")
-        if base_url:
-            print(f"Endpoint URL: {base_url}")
-        print(f"Model: {model_name}")
-        print(f"Initializing {provider_name} client...")
+def detect_provider_from_key(api_key: str) -> str:
+    """Infers the provider from key prefixes if not explicitly specified."""
+    key = api_key.strip()
+    if key.startswith("nvapi-"):
+        return PROVIDER_NVIDIA
+    if key.startswith("AIza"):
+        return PROVIDER_GEMINI
+    if key.startswith("sk-"):
+        return PROVIDER_OPENAI
+    return PROVIDER_OPENAI
 
-        # Initialize the OpenAI-compatible client
-        if is_nvidia and base_url:
-            client = OpenAI(base_url=base_url, api_key=api_key)
+
+def call_llm(
+    provider: str,
+    api_key: str,
+    model: str | None = None,
+    base_url: str | None = None,
+    prompt: str = "Say 'ContentCore backend is successfully connected!' in a single short sentence.",
+) -> str:
+    """
+    Directly calls the specified LLM provider with the given API key, model, and prompt.
+    Returns the text reply from the provider.
+    """
+    provider_name = PROVIDER_MAP.get(provider.strip().lower(), provider.strip())
+    resolved_model = model.strip() if model and model.strip() else DEFAULT_MODELS.get(provider_name, "gpt-4o-mini")
+    resolved_base_url = (
+        base_url.strip() if base_url and base_url.strip() else DEFAULT_BASE_URLS.get(provider_name)
+    )
+
+    if provider_name == PROVIDER_GEMINI:
+        # First attempt OpenAI-compatible endpoint as documented in STEP.md
+        try:
+            client = OpenAI(
+                base_url=resolved_base_url or DEFAULT_BASE_URLS[PROVIDER_GEMINI],
+                api_key=api_key,
+                timeout=30.0,
+            )
+            response = client.chat.completions.create(
+                model=resolved_model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are a helpful assistant verifying system connectivity for ContentCore.",
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                max_tokens=40,
+                temperature=0.2,
+            )
+            return (response.choices[0].message.content or "").strip()
+        except Exception:
+            # Fallback to native Gemini generateContent endpoint
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{resolved_model}:generateContent"
+            res = httpx.post(
+                url,
+                headers={"x-goog-api-key": api_key},
+                json={"contents": [{"role": "user", "parts": [{"text": prompt}]}]},
+                timeout=30.0,
+            )
+            res.raise_for_status()
+            data = res.json()
+            return data["candidates"][0]["content"]["parts"][0]["text"].strip()
+
+    # NVIDIA NIM or OpenAI
+    if resolved_base_url:
+        client = OpenAI(base_url=resolved_base_url, api_key=api_key, timeout=30.0)
+    else:
+        client = OpenAI(api_key=api_key, timeout=30.0)
+
+    response = client.chat.completions.create(
+        model=resolved_model,
+        messages=[
+            {
+                "role": "system",
+                "content": "You are a helpful assistant verifying system connectivity for ContentCore.",
+            },
+            {"role": "user", "content": prompt},
+        ],
+        max_tokens=40,
+        temperature=0.2,
+    )
+    return (response.choices[0].message.content or "").strip()
+
+
+def test_connection(
+    provider: str | None = None,
+    api_key: str | None = None,
+    model: str | None = None,
+    base_url: str | None = None,
+    prompt: str = "Say 'ContentCore backend is successfully connected!' in a single short sentence.",
+) -> str | None:
+    """
+    Validates input parameters (or prompts for them interactively), executes the API call,
+    and displays status output.
+    """
+    # Interactive input handling if run directly in a terminal and no credentials supplied
+    if not api_key and sys.stdin.isatty():
+        print("=" * 65)
+        print("ContentCore - LLM API Direct Connection & Test")
+        print("=" * 65)
+        print("Supported Providers (from STEP.md):")
+        print("  [1] Google Gemini (default model: gemini-3.6-flash)")
+        print("  [2] OpenAI        (default model: gpt-4o-mini)")
+        print("  [3] NVIDIA NIM    (default model: meta/llama-3.2-11b-vision-instruct)")
+        print("=" * 65)
+
+        if not provider:
+            user_provider = input("Select provider [1/2/3] (or Enter to detect from key/.env): ").strip()
+            if user_provider:
+                provider = PROVIDER_MAP.get(user_provider.lower(), user_provider)
+
+        user_key = input("Enter API key (or Enter to check .env): ").strip()
+        if user_key:
+            api_key = user_key
+
+        if provider:
+            canonical_provider = PROVIDER_MAP.get(provider.lower(), provider)
+            default_model = DEFAULT_MODELS.get(canonical_provider, "gpt-4o-mini")
         else:
-            client = OpenAI(api_key=api_key)
+            default_model = "gpt-4o-mini"
 
-        print(f"Sending test request to {provider_name} API...")
+        if not model:
+            user_model = input(f"Enter model name (or Enter for default [{default_model}]): ").strip()
+            if user_model:
+                model = user_model
 
-        # Make a simple, lightweight chat completion call
-        response = client.chat.completions.create(
-            model=model_name,
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are a helpful assistant verifying system connectivity for ContentCore.",
-                },
-                {
-                    "role": "user",
-                    "content": "Say 'ContentCore backend is successfully connected!' in a single short sentence.",
-                },
-            ],
-            max_tokens=40,
-            temperature=0.2,
+    # Resolve from environment fallback if still not provided
+    if not api_key:
+        gemini_env = os.getenv("GEMINI_API_KEY")
+        nvidia_env = os.getenv("NVIDIA_API_KEY")
+        openai_env = os.getenv("OPENAI_API_KEY")
+
+        if provider:
+            canonical = PROVIDER_MAP.get(provider.lower(), provider)
+            if canonical == PROVIDER_GEMINI:
+                api_key = gemini_env
+            elif canonical == PROVIDER_NVIDIA:
+                api_key = nvidia_env
+            elif canonical == PROVIDER_OPENAI:
+                api_key = openai_env
+        else:
+            if gemini_env:
+                provider = PROVIDER_GEMINI
+                api_key = gemini_env
+            elif nvidia_env:
+                provider = PROVIDER_NVIDIA
+                api_key = nvidia_env
+            elif openai_env:
+                provider = PROVIDER_OPENAI
+                api_key = openai_env
+
+    # Validate resolved key
+    if not api_key or api_key.strip() in PLACEHOLDERS:
+        print("=" * 65)
+        print("[ERROR] No valid API key provided or found in environment!")
+        print("=" * 65)
+        print("You can pass the API key directly:")
+        print("  python backend/test.py --provider gemini --api-key <YOUR_KEY>")
+        print("  python backend/test.py --provider openai --api-key <YOUR_KEY>")
+        print("  python backend/test.py --provider nvidia --api-key <YOUR_KEY>")
+        print("=" * 65)
+        return None
+
+    api_key = api_key.strip()
+    if not provider:
+        provider = detect_provider_from_key(api_key)
+
+    canonical_provider = PROVIDER_MAP.get(provider.lower(), provider)
+    resolved_model = model.strip() if model and model.strip() else os.getenv("LLM_MODEL") or DEFAULT_MODELS.get(canonical_provider, "gpt-4o-mini")
+    resolved_base_url = (
+        base_url.strip()
+        if base_url and base_url.strip()
+        else (
+            os.getenv("GEMINI_BASE_URL", DEFAULT_BASE_URLS[PROVIDER_GEMINI])
+            if canonical_provider == PROVIDER_GEMINI
+            else os.getenv("NVIDIA_BASE_URL", DEFAULT_BASE_URLS[PROVIDER_NVIDIA])
+            if canonical_provider == PROVIDER_NVIDIA
+            else None
         )
+    )
 
-        # ---------------------------------------------------------------------------
-        # Step 4: Print the Response
-        # ---------------------------------------------------------------------------
-        reply_message = response.choices[0].message.content.strip()
+    print(f"Provider: {canonical_provider}")
+    print(f"Model: {resolved_model}")
+    if resolved_base_url:
+        print(f"Endpoint URL: {resolved_base_url}")
+    print(f"Sending direct test request to {canonical_provider} API...")
+
+    try:
+        reply = call_llm(
+            provider=canonical_provider,
+            api_key=api_key,
+            model=resolved_model,
+            base_url=resolved_base_url,
+            prompt=prompt,
+        )
         print("=" * 65)
-        print(f"[SUCCESS] {provider_name} API Response:")
+        print(f"[SUCCESS] {canonical_provider} API Response:")
         print("=" * 65)
-        print(reply_message)
+        print(reply)
         print("=" * 65)
+        return reply
 
     except AuthenticationError as auth_err:
         print("=" * 65)
-        print(f"[AUTHENTICATION ERROR] Invalid {provider_name} API Key.")
+        print(f"[AUTHENTICATION ERROR] Invalid {canonical_provider} API Key.")
         print(f"Details: {auth_err}")
-        print("Please verify your API key in backend/.env.")
         print("=" * 65)
-        sys.exit(1)
-
     except APIConnectionError as conn_err:
         print("=" * 65)
-        print(f"[CONNECTION ERROR] Could not reach {provider_name} servers.")
+        print(f"[CONNECTION ERROR] Could not reach {canonical_provider} servers.")
         print(f"Details: {conn_err}")
-        print("Please check your internet connection and network settings.")
         print("=" * 65)
-        sys.exit(1)
-
     except OpenAIError as api_err:
         print("=" * 65)
-        print(f"[API ERROR] {provider_name} encountered an error during the request.")
-        print(f"Details: {api_err}")
+        print(f"[API ERROR] {canonical_provider} encountered an error: {api_err}")
         print("=" * 65)
-        sys.exit(1)
-
+    except httpx.HTTPStatusError as http_err:
+        print("=" * 65)
+        print(f"[HTTP ERROR] {canonical_provider} returned status code {http_err.response.status_code}")
+        print(f"Details: {http_err}")
+        print("=" * 65)
     except Exception as unexpected_err:
         print("=" * 65)
         print(f"[UNEXPECTED ERROR] An unexpected error occurred: {unexpected_err}")
         print("=" * 65)
-        sys.exit(1)
+
+    return None
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Directly call and test supported LLM API providers (Google Gemini, OpenAI, NVIDIA NIM)."
+    )
+    parser.add_argument(
+        "--provider",
+        "-p",
+        choices=["gemini", "google", "openai", "nvidia", "nim", "1", "2", "3"],
+        help="LLM provider: 1/gemini (Google Gemini), 2/openai (OpenAI), 3/nvidia (NVIDIA NIM)",
+    )
+    parser.add_argument(
+        "--api-key",
+        "-k",
+        help="Direct API key for the chosen provider",
+    )
+    parser.add_argument(
+        "--model",
+        "-m",
+        help="Model name (optional; defaults to provider recommended model from STEP.md)",
+    )
+    parser.add_argument(
+        "--base-url",
+        "-u",
+        help="Custom base URL (optional)",
+    )
+    parser.add_argument(
+        "--prompt",
+        default="Say 'ContentCore backend is successfully connected!' in a single short sentence.",
+        help="Test prompt to send",
+    )
+
+    args = parser.parse_args()
+    test_connection(
+        provider=args.provider,
+        api_key=args.api_key,
+        model=args.model,
+        base_url=args.base_url,
+        prompt=args.prompt,
+    )
 
 
 if __name__ == "__main__":
-    test_connection()
+    main()

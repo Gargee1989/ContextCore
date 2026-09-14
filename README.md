@@ -15,12 +15,12 @@ Run it from the project root with:
 uvicorn backend.app:app --reload --port 8000
 ```
 
-Set the provider key in `backend/.env`, then configure this endpoint in the extension settings:
+Configure this endpoint in the extension settings:
 
 ```text
 http://127.0.0.1:8000/define
 ```
 
-The extension sends `POST /define` with `word` and `context`. The backend accepts the word aliases used by the extension and returns a response containing `meaning`, which the extension displays as the explanation. The extension API key field is optional for this local FastAPI setup.
+The extension sends `POST /define` with `word` and `context`. It can also send `provider`, `api_key`, and `model` directly for Google Gemini, OpenAI, or NVIDIA NIM. When those fields are omitted, the backend falls back to its `.env` configuration. The backend accepts the word aliases used by the extension and returns a response containing `meaning`, which the extension displays as the explanation.
 
-The backend supports Google Gemini, OpenAI, and NVIDIA NIM. Set the matching provider key in `backend/.env`; do not put provider keys in the extension.
+The backend supports Google Gemini, OpenAI, and NVIDIA NIM. For direct browser-to-backend configuration, enter the provider, LLM API key, and optional model in the extension settings. API keys are stored in extension-local storage and sent only to the configured backend endpoint.
