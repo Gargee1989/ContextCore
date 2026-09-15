@@ -24,28 +24,19 @@
 <body>
 	<h1>ContentCore Settings</h1>
 	<form id="settings-form">
-		<div class="section-label">Backend Endpoint</div>
-		<label for="endpoint">Lookup endpoint</label>
-		<input id="endpoint" type="url" placeholder="http://127.0.0.1:8000/define" autocomplete="url">
-
-		<div class="section-label">LLM Provider (Direct Call)</div>
+		<div class="section-label">Bring Your Own Provider Key</div>
 		<label for="provider">Provider</label>
 		<select id="provider">
-			<option value="">Auto-detect / Use backend .env</option>
+			<option value="">Select a provider</option>
 			<option value="Google Gemini">Google Gemini</option>
 			<option value="OpenAI">OpenAI</option>
 			<option value="NVIDIA NIM">NVIDIA NIM</option>
 		</select>
-
-		<label for="llm-api-key">LLM API key <span>(sent with each request)</span></label>
-		<input id="llm-api-key" type="password" placeholder="Your Gemini / OpenAI / NVIDIA key" autocomplete="off">
-
-		<label for="llm-model">Model <span>(optional; uses provider default if empty)</span></label>
-		<input id="llm-model" type="text" placeholder="e.g. gemini-3.6-flash, gpt-4o-mini" autocomplete="off">
-
-		<div class="section-label">Endpoint Auth (optional)</div>
-		<label for="api-key">Endpoint API key <span>(only if your server requires it)</span></label>
-		<input id="api-key" type="password" placeholder="Only needed if your endpoint requires it" autocomplete="off">
+		<label for="llm-api-key">Provider API key <span>(sent once to register with the backend)</span></label>
+		<input id="llm-api-key" type="password" placeholder="Enter or replace your provider key" autocomplete="off">
+		<label for="llm-model">Model <span>(optional)</span></label>
+		<input id="llm-model" type="text" placeholder="Uses the provider default if empty" autocomplete="off">
+		<button type="button" id="clear-credential" class="secondary-button">Remove saved provider key</button>
 
 		<button type="submit">Save settings</button>
 		<div id="status" role="status" aria-live="polite"></div>
@@ -62,6 +53,7 @@
 		</ul>
 	</div>
 
+	<script src="crypto.js"></script>
 	<script src="popup.js"></script>
 </body>
 </html>

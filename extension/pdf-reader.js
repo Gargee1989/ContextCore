@@ -78,21 +78,18 @@
 	}
 
 	async function explain(context) {
-		const settings = await chrome.storage.local.get(["contentCoreEndpoint", "contentCoreApiKey", "contentCoreLlmApiKey", "contentCoreProvider", "contentCoreLlmModel"]);
-		if (!settings.contentCoreEndpoint) {
-			showMessage("No API endpoint configured. Open ContentCore settings and add the /define URL.", true);
-			return;
-		}
+		const settings = await ContentCoreCrypto.readSettings();
+		const endpoint = settings.contentCoreEndpoint || ContentCoreCrypto.BACKEND_ENDPOINT;
 		const button = lookupCard.querySelector("[data-explain]");
 		button.disabled = true;
 		setStatus("Fetching explanation...");
 		try {
 			const payload = { ...selectionData };
-			if (settings.contentCoreLlmApiKey) payload.api_key = settings.contentCoreLlmApiKey;
-			if (settings.contentCoreProvider) payload.provider = settings.contentCoreProvider;
-			if (settings.contentCoreLlmModel) payload.model = settings.contentCoreLlmModel;
-
-			const response = await fetch(settings.contentCoreEndpoint, { method: "POST", headers: { "Content-Type": "application/json", ...(settings.contentCoreApiKey ? { Authorization: `Bearer ${settings.contentCoreApiKey}` } : {}) }, body: JSON.stringify(payload) });
+			if (settings.contentCoreCredentialId && settings.contentCoreCredentialToken) {
+				payload.credential_id = settings.contentCoreCredentialId;
+				payload.credential_token = settings.contentCoreCredentialToken;
+			}
+			const response = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
 			if (!response.ok) throw new Error(`API error (${response.status})`);
 			const result = await response.json();
 			const definition = clean(String(result.definition || result.meaning || result.explanation || result.answer || "No explanation was returned."));

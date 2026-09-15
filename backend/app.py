@@ -21,7 +21,14 @@ from backend.exceptions import (
     ContentCoreException,
     InvalidInputException,
 )
-from backend.schemas import DefineRequest, DefineResponse, ErrorResponse
+from backend.schemas import (
+    CredentialRegisterRequest,
+    CredentialRegisterResponse,
+    DefineRequest,
+    DefineResponse,
+    ErrorResponse,
+)
+from backend.services.credential_service import credential_service
 from backend.services.llm_service import llm_service
 
 # Configure privacy-preserving logging
@@ -30,6 +37,20 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger("contentcore.api")
+
+
+def require_backend_auth(request: Request) -> None:
+    """Enforces optional backend authentication without treating it as an LLM key."""
+    expected_token = settings.backend_auth_token
+    if not expected_token:
+        return
+
+    provided_token = request.headers.get("x-api-key") or ""
+    authorization = request.headers.get("authorization") or ""
+    if not provided_token and authorization.lower().startswith("bearer "):
+        provided_token = authorization[7:].strip()
+    if provided_token != expected_token:
+        raise InvalidInputException("A valid backend API key is required.")
 
 
 @asynccontextmanager
@@ -155,6 +176,7 @@ async def define_text(request: Request) -> JSONResponse:
     Accepts target text (under 'word', 'phrase', 'target', or 'selectedText')
     and surrounding 'context'. Returns an instant, simplified contextual explanation.
     """
+    require_backend_auth(request)
     try:
         payload = await request.json()
     except Exception:
@@ -165,18 +187,19 @@ async def define_text(request: Request) -> JSONResponse:
     # Validate and normalize payload
     req = DefineRequest.model_validate(payload)
 
-    # Extract direct credentials from payload or request headers
-    auth_header = request.headers.get("authorization") or ""
-    header_api_key = None
-    if auth_header.lower().startswith("bearer "):
-        header_api_key = auth_header[7:].strip()
-    elif auth_header:
-        header_api_key = auth_header.strip()
+    # Resolve a registered BYOK credential on the backend. Direct fields remain
+    # available for non-extension clients, but the extension only sends references.
+    credential_config = None
+    if req.credential_id or req.credential_token:
+        credential_config = credential_service.resolve(
+            credential_id=req.credential_id or "",
+            credential_token=req.credential_token or "",
+        )
 
-    direct_api_key = req.api_key or request.headers.get("x-api-key") or header_api_key
-    direct_provider = req.provider or request.headers.get("x-provider")
-    direct_model = req.model or request.headers.get("x-model")
-    direct_base_url = req.base_url or request.headers.get("x-base-url")
+    direct_api_key = credential_config["api_key"] if credential_config else req.api_key
+    direct_provider = credential_config["provider"] if credential_config else req.provider
+    direct_model = credential_config["model"] if credential_config else req.model
+    direct_base_url = credential_config["base_url"] if credential_config else req.base_url
 
     # Call LLM contextual engine
     result: DefineResponse = llm_service.define(
@@ -194,6 +217,48 @@ async def define_text(request: Request) -> JSONResponse:
     )
 
 
+@app.post(
+    "/credentials",
+    response_model=CredentialRegisterResponse,
+    responses={400: {"model": ErrorResponse}, 503: {"model": ErrorResponse}},
+)
+async def register_credential(request: Request) -> CredentialRegisterResponse:
+    """Encrypt and register a user's provider key without returning the key."""
+    require_backend_auth(request)
+    try:
+        payload = await request.json()
+        req = CredentialRegisterRequest.model_validate(payload)
+    except Exception as error:
+        if isinstance(error, InvalidInputException):
+            raise
+        raise InvalidInputException(
+            "Provider, API key, and optional model are required."
+        ) from error
+
+    registered = credential_service.register(
+        provider=req.provider,
+        api_key=req.api_key,
+        model=req.model,
+        base_url=req.base_url,
+    )
+    return CredentialRegisterResponse(**registered)
+
+
+@app.delete(
+    "/credentials/{credential_id}",
+    responses={400: {"model": ErrorResponse}},
+)
+async def delete_credential(credential_id: str, request: Request) -> dict[str, str]:
+    """Delete a registered credential using its opaque access token."""
+    require_backend_auth(request)
+    token = request.headers.get("x-credential-token") or ""
+    auth_header = request.headers.get("authorization") or ""
+    if not token and auth_header.lower().startswith("bearer "):
+        token = auth_header[7:].strip()
+    credential_service.delete(credential_id, token)
+    return {"status": "deleted"}
+
+
 @app.get("/health")
 async def health_check() -> dict[str, Any]:
     """Health check endpoint providing non-sensitive operational status."""
@@ -203,7 +268,8 @@ async def health_check() -> dict[str, Any]:
         "model": settings.model,
         "configured": settings.is_configured,
         "supported_providers": SUPPORTED_PROVIDERS,
-        "accepts_direct_input": True,
+        "credential_storage_configured": bool(settings.credential_encryption_key),
+        "accepts_credential_references": True,
     }
 
 
