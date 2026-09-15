@@ -15,12 +15,14 @@ Run it from the project root with:
 uvicorn backend.app:app --reload --port 8000
 ```
 
-Configure this endpoint in the extension settings:
+The extension connects to the backend endpoint configured in `extension/crypto.js` (`BACKEND_ENDPOINT`). For local development, this defaults to:
 
 ```text
 http://127.0.0.1:8000/define
 ```
 
-The extension sends `POST /define` with `word` and `context`. It can also send `provider`, `api_key`, and `model` directly for Google Gemini, OpenAI, or NVIDIA NIM. When those fields are omitted, the backend falls back to its `.env` configuration. The backend accepts the word aliases used by the extension and returns a response containing `meaning`, which the extension displays as the explanation.
+The extension sends `POST /define` with `word` and `context`. Provider API calls happen only in the backend; the extension never receives or sends Gemini, OpenAI, or NVIDIA provider keys. The backend accepts the word aliases used by the extension and returns a response containing `meaning`, which the extension displays as the explanation.
 
-The backend supports Google Gemini, OpenAI, and NVIDIA NIM. For direct browser-to-backend configuration, enter the provider, LLM API key, and optional model in the extension settings. API keys are stored in extension-local storage and sent only to the configured backend endpoint.
+The backend supports Google Gemini, OpenAI, and NVIDIA NIM. Configure the fallback provider key and model in `backend/.env` or the deployment environment.
+
+For BYOK mode, the extension sends the user's provider key once to `POST /credentials`. The backend encrypts the key with `CREDENTIAL_ENCRYPTION_KEY` and returns an opaque credential reference. Subsequent `/define` requests send only that reference; provider keys never return to the extension after registration.

@@ -27,6 +27,8 @@ class DefineRequest(BaseModel):
     provider: str | None = Field(default=None, description="LLM provider: Google Gemini, OpenAI, or NVIDIA NIM")
     model: str | None = Field(default=None, description="Model name to use")
     base_url: str | None = Field(default=None, description="Optional custom base URL")
+    credential_id: str | None = Field(default=None, description="Registered credential ID")
+    credential_token: str | None = Field(default=None, description="Registered credential access token")
 
     model_config = ConfigDict(extra="ignore")
 
@@ -114,7 +116,37 @@ class DefineRequest(BaseModel):
         if isinstance(raw_base_url, str) and raw_base_url.strip():
             validated["base_url"] = raw_base_url.strip()
 
+        raw_credential_id = data.get("credential_id") or data.get("credentialId")
+        if isinstance(raw_credential_id, str) and raw_credential_id.strip():
+            validated["credential_id"] = raw_credential_id.strip()
+
+        raw_credential_token = data.get("credential_token") or data.get("credentialToken")
+        if isinstance(raw_credential_token, str) and raw_credential_token.strip():
+            validated["credential_token"] = raw_credential_token.strip()
+
         return validated
+
+
+class CredentialRegisterRequest(BaseModel):
+    """Request to register a user's provider key on the backend."""
+
+    provider: str
+    api_key: str = Field(..., min_length=1)
+    model: str | None = None
+    base_url: str | None = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class CredentialRegisterResponse(BaseModel):
+    """Opaque reference returned after encrypted credential registration."""
+
+    credential_id: str
+    credential_token: str
+    provider: str
+    model: str
+
+    model_config = ConfigDict(extra="forbid")
 
 
 class DefineResponse(BaseModel):

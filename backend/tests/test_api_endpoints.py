@@ -175,3 +175,60 @@ def test_define_endpoint_cors_headers():
         },
     )
     assert response.headers.get("access-control-allow-origin") == "*"
+
+
+def test_register_credential_returns_opaque_reference():
+    registered = {
+        "credential_id": "credential-id",
+        "credential_token": "credential-token",
+        "provider": "OpenAI",
+        "model": "gpt-test",
+    }
+    with patch("backend.app.credential_service.register", return_value=registered) as register:
+        response = client.post(
+            "/credentials",
+            json={"provider": "OpenAI", "api_key": "sk-test", "model": "gpt-test"},
+        )
+
+    assert response.status_code == 200
+    assert response.json() == registered
+    assert "api_key" not in response.json()
+    register.assert_called_once_with(
+        provider="OpenAI",
+        api_key="sk-test",
+        model="gpt-test",
+        base_url=None,
+    )
+
+
+def test_define_endpoint_resolves_credential_reference():
+    mock_result = DefineResponse(
+        status="success",
+        meaning="A test meaning.",
+        tone="",
+        synonym="",
+        example="",
+        simplified_passage="",
+    )
+    resolved = {
+        "api_key": "sk-server-side",
+        "provider": "OpenAI",
+        "model": "gpt-test",
+        "base_url": None,
+    }
+    with patch("backend.app.credential_service.resolve", return_value=resolved), patch(
+        "backend.app.llm_service.define", return_value=mock_result
+    ) as define:
+        response = client.post(
+            "/define",
+            json={
+                "word": "test",
+                "context": "Valid test context.",
+                "credential_id": "credential-id",
+                "credential_token": "credential-token",
+            },
+        )
+
+    assert response.status_code == 200
+    assert define.call_args.kwargs["api_key"] == "sk-server-side"
+    assert define.call_args.kwargs["provider"] == "OpenAI"

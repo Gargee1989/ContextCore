@@ -55,6 +55,7 @@ The backend uses:
 - Pydantic
 - OpenAI-compatible client
 - HTTPX
+- cryptography (AES-GCM credential encryption)
 - python-dotenv
 - pytest
 
@@ -66,9 +67,21 @@ The backend supports the 3 providers listed below:
 - OpenAI
 - NVIDIA NIM
 
-Provider credentials can be supplied directly in the extension settings. Enter the provider, API key, and optional model under **LLM Provider (Direct Call)**. The extension sends these values in each `/define` request.
+Provider credentials must remain on the backend. Configure the provider key and model in `.env` for local development or in deployment environment variables. The extension sends only selected text and context to `/define`; it never receives or sends Gemini, OpenAI, or NVIDIA provider keys.
 
-The backend also supports `.env` configuration as a fallback for server-side deployments. Create this file only when you want the backend to select a provider without request-level credentials:
+For the extension's BYOK mode, set a separate backend encryption key. Generate one with:
+
+```powershell
+python -c "import base64,secrets; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode())"
+```
+
+Add the generated value to `backend/.env` or your deployment secret store:
+
+```env
+CREDENTIAL_ENCRYPTION_KEY=the_generated_value
+```
+
+The extension sends a user-supplied provider key once to `POST /credentials`. The backend encrypts it and returns an opaque credential reference. Later `/define` requests use only that reference.
 
 Create this file:
 
@@ -155,7 +168,7 @@ A successful response contains fields such as:
 }
 ```
 
-If the response says the definition service is unavailable, verify the direct provider/API key/model values or, for fallback mode, check the provider key in `backend/.env` and restart Uvicorn.
+If the response says the definition service is unavailable, check the provider key in `backend/.env` and restart Uvicorn.
 
 ## 7. Run backend tests
 
@@ -180,18 +193,57 @@ All tests should pass before pushing backend changes.
 ```
 
 6. Click the ContentCore extension icon.
-7. In **Lookup endpoint**, enter:
+7. Under **Bring Your Own Provider Key**, select Google Gemini, OpenAI, or NVIDIA NIM.
+8. Enter your provider API key and optionally enter a model.
+9. Click **Save settings**. The provider key is registered once and is not stored in the extension after registration.
 
-```text
-http://127.0.0.1:8000/define
+Note: The backend endpoint URL is hardcoded in `extension/crypto.js` (`BACKEND_ENDPOINT`). To change it after deploying your backend, update `BACKEND_ENDPOINT` in `extension/crypto.js`.
+
+## 9. How to check API key encryption
+
+Use a test key, not a real provider key, while verifying storage.
+
+1. Open the ContentCore popup.
+2. Right-click inside the popup and choose **Inspect**.
+3. Select a provider, enter a test value such as `test-key-not-real`, and click **Save settings**.
+4. In the popup DevTools Console, run:
+
+```javascript
+const data = await chrome.storage.local.get(null);
+console.log(data);
 ```
 
-8. Under **LLM Provider (Direct Call)**, select Google Gemini, OpenAI, or NVIDIA NIM.
-9. Enter that provider's API key and optionally set a model. Leave these fields empty to use the backend `.env` fallback.
-10. Leave **Endpoint API key** empty for the local FastAPI setup.
-11. Click **Save settings**.
+The storage should contain these keys:
 
-## 9. Test the complete flow
+```text
+contentCoreCredentialId
+contentCoreCredentialTokenEncrypted
+contentCoreEncryptionKey
+```
+
+It should not contain the plaintext keys:
+
+```text
+contentCoreApiKey
+contentCoreLlmApiKey
+```
+
+Inspect the encrypted credential token:
+
+```javascript
+JSON.parse(data.contentCoreCredentialTokenEncrypted)
+```
+
+The result should contain `iv` and `ciphertext`. Confirm that settings can still be decrypted without exposing the API key:
+
+```javascript
+const settings = await ContentCoreCrypto.readSettings();
+console.log(Boolean(settings.contentCoreCredentialToken));
+```
+
+The command should print `true`. Finally, verify that a lookup still works. The backend credential token is decrypted in extension memory and sent to the configured backend; the provider API key is not sent. Use an HTTPS endpoint for production.
+
+## 10. Test the complete flow
 
 ### Webpage
 
@@ -213,24 +265,24 @@ http://127.0.0.1:8000/define
 
 Chrome's built-in PDF viewer is isolated from the extension. Use the ContentCore PDF Reader for PDFs.
 
-## 10. Files and their roles
+## 11. Files and their roles
 
 - `backend/app.py`: FastAPI application with `POST /define` and `GET /health`.
-- `backend/config.py`: Resolves direct request credentials and `.env` fallback settings.
+- `backend/config.py`: Resolves backend provider credentials and deployment settings.
 - `backend/schemas.py`: Validates request and response data.
 - `backend/prompts.py`: Contains the LLM instructions.
 - `backend/services/llm_service.py`: Calls the configured LLM provider.
 - `backend/exceptions.py`: Defines backend error responses.
 - `backend/requirements.txt`: Python dependencies.
 - `extension/manifest.json`: Browser extension configuration.
-- `extension/popup.html`: Endpoint, provider, model, and API key settings page.
+- `extension/popup.html`: Backend endpoint and optional backend-auth settings page.
 - `extension/popup.js`: Saves extension settings locally.
 - `extension/content.js`: Webpage selection, context extraction, lookup, caching, and Save.
 - `extension/pdf-viewer.html`: Dedicated PDF reader page.
 - `extension/pdf-reader.js`: PDF rendering, PDF text selection, lookup, and Save.
 - `extension/lib/pdfjs/`: Bundled PDF.js files.
 
-## 11. Git workflow for the team
+## 12. Git workflow for the team
 
 Before starting work:
 

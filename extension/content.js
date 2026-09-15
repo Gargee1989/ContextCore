@@ -127,24 +127,19 @@
 		setStatus("Fetching...");
 
 		try {
-			const settings = await chrome.storage.local.get(["contentCoreEndpoint", "contentCoreApiKey", "contentCoreLlmApiKey", "contentCoreProvider", "contentCoreLlmModel"]);
-
-			if (!settings.contentCoreEndpoint) {
-				showMessage("No API endpoint configured. Add one in ContentCore settings.", true);
-				button.disabled = false;
-				return;
-			}
+			const settings = await ContentCoreCrypto.readSettings();
+			const endpoint = settings.contentCoreEndpoint || ContentCoreCrypto.BACKEND_ENDPOINT;
 
 			const payload = { ...selectionData };
-			if (settings.contentCoreLlmApiKey) payload.api_key = settings.contentCoreLlmApiKey;
-			if (settings.contentCoreProvider) payload.provider = settings.contentCoreProvider;
-			if (settings.contentCoreLlmModel) payload.model = settings.contentCoreLlmModel;
+			if (settings.contentCoreCredentialId && settings.contentCoreCredentialToken) {
+				payload.credential_id = settings.contentCoreCredentialId;
+				payload.credential_token = settings.contentCoreCredentialToken;
+			}
 
-			const response = await fetch(settings.contentCoreEndpoint, {
+			const response = await fetch(endpoint, {
 				method: "POST",
 				headers: {
-					"Content-Type": "application/json",
-					...(settings.contentCoreApiKey ? { Authorization: `Bearer ${settings.contentCoreApiKey}` } : {})
+					"Content-Type": "application/json"
 				},
 				body: JSON.stringify(payload)
 			});
@@ -228,36 +223,3 @@
 	});
 	document.addEventListener("scroll", removeCard, { passive: true });
 })();
-
-const settingsForm = document.querySelector("#settings-form");
-if (settingsForm) {
-	const endpoint = document.querySelector("#endpoint");
-	const apiKey = document.querySelector("#api-key");
-	const status = document.querySelector("#status");
-
-	chrome.storage.local.get(["contentCoreEndpoint", "contentCoreApiKey"], (settings) => {
-		endpoint.value = settings.contentCoreEndpoint || "";
-		apiKey.value = settings.contentCoreApiKey || "";
-	});
-
-	settingsForm.addEventListener("submit", async (event) => {
-		event.preventDefault();
-		let endpointUrl;
-		try {
-			endpointUrl = endpoint.value ? new URL(endpoint.value) : null;
-		} catch {
-			endpointUrl = null;
-		}
-		if (endpoint.value && (!endpoint.validity.valid || endpointUrl?.protocol !== "https:")) {
-			status.textContent = "Enter a valid HTTPS endpoint.";
-			status.className = "error";
-			return;
-		}
-		await chrome.storage.local.set({
-			contentCoreEndpoint: endpoint.value.trim(),
-			contentCoreApiKey: apiKey.value.trim()
-		});
-		status.textContent = "Settings saved.";
-		status.className = "success";
-	});
-}

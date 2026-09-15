@@ -189,6 +189,10 @@ class Settings:
         # Server defaults
         self.host: str = os.getenv("HOST", "127.0.0.1")
         self.port: int = int(os.getenv("PORT", "8000"))
+        self.backend_auth_token: str = os.getenv("BACKEND_AUTH_TOKEN", "").strip()
+        self.credential_encryption_key: str = os.getenv(
+            "CREDENTIAL_ENCRYPTION_KEY", ""
+        ).strip()
 
     @property
     def api_key(self) -> str:
