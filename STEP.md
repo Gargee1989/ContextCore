@@ -126,7 +126,7 @@ backend/config.py
 From the repository root, with `.venv` active:
 
 ```bash
-uvicorn backend.app:app --reload --host 127.0.0.1 --port 8000
+python -m uvicorn backend.app:app --reload --host 127.0.0.1 --port 8000
 ```
 
 Keep this terminal running.
