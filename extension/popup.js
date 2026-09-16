@@ -31,22 +31,31 @@ if (settingsForm) {
 		try {
 			const settings = await ContentCoreCrypto.readSettings();
 			if (settings.contentCoreCredentialId && settings.contentCoreCredentialToken) {
-				const response = await fetch(
-					`${ContentCoreCrypto.getCredentialsEndpoint()}/${encodeURIComponent(settings.contentCoreCredentialId)}`,
-					{
-						method: "DELETE",
-						headers: {
-							"x-credential-token": settings.contentCoreCredentialToken
+				try {
+					await fetch(
+						`${ContentCoreCrypto.getCredentialsEndpoint()}/${encodeURIComponent(settings.contentCoreCredentialId)}`,
+						{
+							method: "DELETE",
+							headers: {
+								"x-credential-token": settings.contentCoreCredentialToken
+							}
 						}
-					}
-				);
-				if (!response.ok) throw new Error(`Credential removal failed (${response.status})`);
+					);
+				} catch (networkError) {
+					console.warn("Backend credential removal request failed:", networkError);
+				}
 			}
 			await chrome.storage.local.remove([
 				"contentCoreCredentialId",
 				"contentCoreCredentialTokenEncrypted",
 				"contentCoreProvider",
-				"contentCoreLlmModel"
+				"contentCoreLlmModel",
+				"contentCoreApiKey",
+				"contentCoreApiKeyEncrypted",
+				"contentCoreLlmApiKey",
+				"contentCoreLlmApiKeyEncrypted",
+				"contentCoreProviderLegacy",
+				"contentCoreLlmModelLegacy"
 			]);
 			provider.value = "";
 			llmApiKey.value = "";

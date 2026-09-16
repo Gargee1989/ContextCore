@@ -15,22 +15,42 @@
 	const clean = (value) => value.replace(/\s+/g, " ").trim();
 
 	function contextFor(selection, sourceText = pageText) {
-		const selected = clean(selection.toString());
-		const index = sourceText.toLowerCase().indexOf(selected.toLowerCase());
-		if (!selected || index < 0) return sourceText.slice(0, 1200);
-		if (sourceText.length <= 5000) return sourceText;
-		const sentenceStart = Math.max(
-			sourceText.lastIndexOf(".", index - 1),
-			sourceText.lastIndexOf("!", index - 1),
-			sourceText.lastIndexOf("?", index - 1)
-		) + 1;
-		const sentenceEndCandidates = [
-			sourceText.indexOf(".", index + selected.length),
-			sourceText.indexOf("!", index + selected.length),
-			sourceText.indexOf("?", index + selected.length)
-		].filter((position) => position >= 0);
-		const sentenceEnd = sentenceEndCandidates.length ? Math.min(...sentenceEndCandidates) + 1 : sourceText.length;
-		return sourceText.slice(sentenceStart, sentenceEnd).trim().slice(0, 5000);
+		const selected = clean(selection ? selection.toString() : "");
+		const cleanSource = clean(sourceText);
+		const index = cleanSource.toLowerCase().indexOf(selected.toLowerCase());
+		if (!selected || index < 0) {
+			const base = cleanSource.slice(0, 1200);
+			const firstLine = clean(sourceText.split(/\r?\n/)[0] || "");
+			if (firstLine && firstLine.length <= 100 && !/[.!?]$/.test(firstLine)) {
+				return `[Heading: ${firstLine}] ${base}`.slice(0, 5000);
+			}
+			return base;
+		}
+
+		let baseContext = cleanSource;
+		if (cleanSource.length > 5000) {
+			const sentenceStart = Math.max(
+				cleanSource.lastIndexOf(".", index - 1),
+				cleanSource.lastIndexOf("!", index - 1),
+				cleanSource.lastIndexOf("?", index - 1)
+			) + 1;
+			const sentenceEndCandidates = [
+				cleanSource.indexOf(".", index + selected.length),
+				cleanSource.indexOf("!", index + selected.length),
+				cleanSource.indexOf("?", index + selected.length)
+			].filter((position) => position >= 0);
+			const sentenceEnd = sentenceEndCandidates.length ? Math.min(...sentenceEndCandidates) + 1 : cleanSource.length;
+			baseContext = cleanSource.slice(sentenceStart, sentenceEnd).trim();
+		}
+
+		const firstLine = clean(sourceText.split(/\r?\n/)[0] || "");
+		let heading = "";
+		if (firstLine && firstLine.length <= 100 && !/[.!?]$/.test(firstLine)) {
+			heading = firstLine;
+		}
+
+		const result = heading ? `[Heading: ${heading}] ${baseContext}` : baseContext;
+		return result.slice(0, 5000);
 	}
 
 	function removeCard() {
@@ -141,8 +161,9 @@
 				const textLayer = document.createElement("div");
 				textLayer.className = "text-layer";
 				const textContent = await page.getTextContent();
-				currentPageText = clean(textContent.items.map((item) => item.str).join(" "));
-				pageText += `${currentPageText} `;
+				const pageLines = textContent.items.map((item) => item.str + (item.hasEOL ? "\n" : " ")).join("");
+				currentPageText = pageLines.split("\n").map(clean).filter(Boolean).join("\n");
+				pageText += `${clean(currentPageText)} `;
 				wrapper.dataset.text = currentPageText;
 				for (const item of textContent.items) {
 					const span = document.createElement("span");

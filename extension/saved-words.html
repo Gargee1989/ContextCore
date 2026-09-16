@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Saved Words — ContentCore Vocabulary Review</title>
+	<style>
+		:root {
+			--bg: #f8f7f1;
+			--surface: #ffffff;
+			--surface-subtle: #f0eee6;
+			--text-primary: #17211b;
+			--text-muted: #57645b;
+			--accent: #35644a;
+			--accent-hover: #264a36;
+			--accent-light: #e8efe9;
+			--border: #c6c9bb;
+			--border-light: #e0e0d8;
+			--danger: #a53e32;
+			--danger-hover: #863025;
+			--danger-bg: #fdf2f2;
+			--shadow-sm: 0 2px 6px rgba(18, 28, 20, 0.05);
+			--shadow-md: 0 8px 24px rgba(18, 28, 20, 0.08);
+			--radius: 8px;
+		}
+
+		* {
+			box-sizing: border-box;
+			margin: 0;
+			padding: 0;
+		}
+
+		body {
+			font-family: Arial, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+			background-color: var(--bg);
+			color: var(--text-primary);
+			line-height: 1.5;
+			min-height: 100vh;
+			display: flex;
+			flex-direction: column;
+		}
+
+		.container {
+			width: 100%;
+			max-width: 1120px;
+			margin: 0 auto;
+			padding: 32px 24px 64px;
+			flex: 1;
+		}
+
+		/* Header */
+		header {
+			display: flex;
+			flex-wrap: wrap;
+			justify-content: space-between;
+			align-items: center;
+			gap: 16px;
+			margin-bottom: 28px;
+			padding-bottom: 20px;
+			border-bottom: 1px solid var(--border-light);
+		}
+
+		.header-title {
+			display: flex;
+			align-items: center;
+			gap: 12px;
+		}
+
+		.logo-badge {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			width: 40px;
+			height: 40px;
+			background: var(--accent);
+			color: #fff;
+			border-radius: var(--radius);
+			font-weight: 700;
+			font-size: 20px;
+			font-family: Georgia, serif;
+		}
+
+		h1 {
+			font-family: Georgia, serif;
+			font-size: 26px;
+			color: var(--accent);
+			font-weight: 700;
+		}
+
+		.subtitle {
+			font-size: 13px;
+			color: var(--text-muted);
+			margin-top: 2px;
+		}
+
+		.header-stats {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+		}
+
+		.stat-pill {
+			background: var(--surface);
+			border: 1px solid var(--border);
+			padding: 6px 14px;
+			border-radius: 20px;
+			font-size: 13px;
+			font-weight: 600;
+			color: var(--accent);
+			box-shadow: var(--shadow-sm);
+		}
+
+		/* Controls / Toolbar */
+		.toolbar {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 12px;
+			align-items: center;
+			justify-content: space-between;
+			margin-bottom: 24px;
+		}
+
+		.search-wrapper {
+			position: relative;
+			flex: 1;
+			min-width: 260px;
+			max-width: 460px;
+		}
+
+		.search-input {
+			width: 100%;
+			padding: 10px 36px 10px 14px;
+			background: var(--surface);
+			border: 1px solid var(--border);
+			border-radius: var(--radius);
+			font-size: 14px;
+			color: var(--text-primary);
+			outline: none;
+			transition: border-color 0.15s ease, box-shadow 0.15s ease;
+		}
+
+		.search-input:focus {
+			border-color: var(--accent);
+			box-shadow: 0 0 0 3px rgba(53, 100, 74, 0.15);
+		}
+
+		.search-clear {
+			position: absolute;
+			right: 10px;
+			top: 50%;
+			transform: translateY(-50%);
+			background: none;
+			border: none;
+			color: var(--text-muted);
+			font-size: 16px;
+			cursor: pointer;
+			padding: 4px;
+			line-height: 1;
+			display: none;
+		}
+
+		.search-clear:hover {
+			color: var(--text-primary);
+		}
+
+		.actions-wrapper {
+			display: flex;
+			gap: 10px;
+			flex-wrap: wrap;
+		}
+
+		.btn {
+			display: inline-flex;
+			align-items: center;
+			gap: 6px;
+			padding: 9px 16px;
+			font-size: 13px;
+			font-weight: 600;
+			border-radius: var(--radius);
+			cursor: pointer;
+			transition: all 0.15s ease;
+			border: 1px solid transparent;
+			text-decoration: none;
+		}
+
+		.btn-primary {
+			background: var(--accent);
+			color: #fff;
+			border-color: var(--accent);
+		}
+
+		.btn-primary:hover:not(:disabled) {
+			background: var(--accent-hover);
+			border-color: var(--accent-hover);
+		}
+
+		.btn-secondary {
+			background: var(--surface);
+			color: var(--text-primary);
+			border-color: var(--border);
+		}
+
+		.btn-secondary:hover:not(:disabled) {
+			background: var(--surface-subtle);
+		}
+
+		.btn-danger {
+			background: var(--surface);
+			color: var(--danger);
+			border-color: var(--border);
+		}
+
+		.btn-danger:hover:not(:disabled) {
+			background: var(--danger-bg);
+			border-color: var(--danger);
+		}
+
+		.btn:disabled {
+			opacity: 0.5;
+			cursor: not-allowed;
+		}
+
+		/* Grid & Cards */
+		.cards-grid {
+			display: grid;
+			grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+			gap: 20px;
+		}
+
+		.word-card {
+			background: var(--surface);
+			border: 1px solid var(--border);
+			border-radius: var(--radius);
+			padding: 20px;
+			display: flex;
+			flex-direction: column;
+			gap: 14px;
+			box-shadow: var(--shadow-sm);
+			transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+			position: relative;
+		}
+
+		.word-card:hover {
+			transform: translateY(-2px);
+			box-shadow: var(--shadow-md);
+			border-color: #aeb4a3;
+		}
+
+		.card-header {
+			display: flex;
+			justify-content: space-between;
+			align-items: flex-start;
+			gap: 12px;
+		}
+
+		.word-title {
+			font-family: Georgia, serif;
+			font-size: 22px;
+			font-weight: 700;
+			color: var(--text-primary);
+			line-height: 1.2;
+			overflow-wrap: anywhere;
+		}
+
+		.card-delete-btn {
+			background: transparent;
+			border: none;
+			color: #99a29a;
+			font-size: 18px;
+			line-height: 1;
+			cursor: pointer;
+			padding: 4px 6px;
+			border-radius: 4px;
+			transition: color 0.15s ease, background 0.15s ease;
+			flex-shrink: 0;
+		}
+
+		.card-delete-btn:hover {
+			color: var(--danger);
+			background: var(--danger-bg);
+		}
+
+		.definition-box {
+			font-size: 15px;
+			line-height: 1.5;
+			color: #263228;
+		}
+
+		.context-box {
+			background: var(--surface-subtle);
+			border-left: 3px solid var(--accent);
+			border-radius: 0 var(--radius) var(--radius) 0;
+			padding: 10px 12px;
+			font-size: 13px;
+			font-style: italic;
+			color: var(--text-muted);
+			line-height: 1.45;
+			overflow-wrap: anywhere;
+		}
+
+		.card-footer {
+			margin-top: auto;
+			padding-top: 12px;
+			border-top: 1px solid var(--border-light);
+			display: flex;
+			flex-direction: column;
+			gap: 6px;
+			font-size: 12px;
+			color: var(--text-muted);
+		}
+
+		.source-link {
+			display: inline-flex;
+			align-items: center;
+			gap: 4px;
+			color: var(--accent);
+			text-decoration: none;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+			max-width: 100%;
+			font-weight: 500;
+		}
+
+		.source-link:hover {
+			text-decoration: underline;
+		}
+
+		.source-pdf {
+			display: inline-flex;
+			align-items: center;
+			gap: 4px;
+			color: var(--text-muted);
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+			font-weight: 500;
+		}
+
+		.date-text {
+			font-size: 11px;
+			color: #839086;
+		}
+
+		/* Empty & Filtered States */
+		.empty-state {
+			text-align: center;
+			padding: 64px 20px;
+			background: var(--surface);
+			border: 1px dashed var(--border);
+			border-radius: var(--radius);
+			margin-top: 20px;
+		}
+
+		.empty-icon {
+			font-size: 48px;
+			margin-bottom: 16px;
+			display: inline-block;
+			opacity: 0.85;
+		}
+
+		.empty-title {
+			font-family: Georgia, serif;
+			font-size: 20px;
+			color: var(--text-primary);
+			font-weight: 700;
+			margin-bottom: 8px;
+		}
+
+		.empty-text {
+			color: var(--text-muted);
+			font-size: 14px;
+			max-width: 420px;
+			margin: 0 auto;
+			line-height: 1.5;
+		}
+
+		/* Footer */
+		footer {
+			margin-top: auto;
+			text-align: center;
+			padding: 20px;
+			font-size: 12px;
+			color: var(--text-muted);
+			border-top: 1px solid var(--border-light);
+		}
+	</style>
+</head>
+<body>
+	<div class="container">
+		<header>
+			<div class="header-title">
+				<div class="logo-badge">CC</div>
+				<div>
+					<h1>Vocabulary Review</h1>
+					<div class="subtitle">Words and definitions saved during your reading sessions</div>
+				</div>
+			</div>
+			<div class="header-stats">
+				<div id="word-count-badge" class="stat-pill">0 words saved</div>
+			</div>
+		</header>
+
+		<div class="toolbar">
+			<div class="search-wrapper">
+				<input
+					type="search"
+					id="search-input"
+					class="search-input"
+					placeholder="Search word, definition, context..."
+					autocomplete="off"
+				>
+				<button type="button" id="search-clear" class="search-clear" aria-label="Clear search">&times;</button>
+			</div>
+			<div class="actions-wrapper">
+				<button type="button" id="export-btn" class="btn btn-secondary" title="Download all saved words as CSV">
+					📥 Export CSV
+				</button>
+				<button type="button" id="clear-all-btn" class="btn btn-danger" title="Remove all saved words">
+					🗑 Clear All
+				</button>
+			</div>
+		</div>
+
+		<main id="cards-container" class="cards-grid"></main>
+
+		<div id="empty-state" class="empty-state" style="display: none;">
+			<div class="empty-icon">📖</div>
+			<div class="empty-title">No saved words yet</div>
+			<p class="empty-text">
+				Highlight any word while reading a webpage or PDF and click <strong>Save</strong> to start building your personal vocabulary list.
+			</p>
+		</div>
+
+		<div id="no-results-state" class="empty-state" style="display: none;">
+			<div class="empty-icon">🔍</div>
+			<div class="empty-title">No matching words</div>
+			<p class="empty-text">
+				No saved words match your current search query. Try typing something else or clear the filter.
+			</p>
+		</div>
+	</div>
+
+	<footer>
+		ContentCore &copy; 2026 &mdash; Smart Contextual Reading Assistant
+	</footer>
+
+	<script src="saved-words.js"></script>
+</body>
+</html>

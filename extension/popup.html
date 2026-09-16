@@ -13,6 +13,10 @@
 		input, select { width: 100%; padding: 8px; margin-top: 4px; border: 1px solid #c6c9bb; border-radius: 4px; font: 13px Arial, sans-serif; background: white; }
 		button { width: 100%; padding: 10px; margin-top: 16px; background: #35644a; color: white; border: none; border-radius: 4px; cursor: pointer; font: 600 13px Arial, sans-serif; }
 		button:hover { background: #2d5239; }
+		button:disabled { opacity: 0.5; cursor: not-allowed; }
+		.secondary-button { background: transparent; color: #a53e32; border: 1px solid #c6c9bb; margin-top: 8px; }
+		.secondary-button:hover:not(:disabled) { background: #fdf2f2; border-color: #a53e32; }
+		.secondary-button:disabled { background: transparent; border-color: #e0e0d8; color: #999; }
 		#status { margin-top: 12px; padding: 8px; border-radius: 4px; font-size: 12px; display: none; }
 		#status.success { background: #d4edda; color: #155724; display: block; }
 		#status.error { background: #f8d7da; color: #721c24; display: block; }
@@ -41,6 +45,7 @@
 		<button type="submit">Save settings</button>
 		<div id="status" role="status" aria-live="polite"></div>
 	</form>
+	<a class="reader-link" href="saved-words.html" target="_blank">View Saved Words</a>
 	<a class="reader-link" href="pdf-viewer.html" target="_blank">Open ContentCore PDF Reader</a>
 
 	<div class="info">
