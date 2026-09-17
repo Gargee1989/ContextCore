@@ -1,4 +1,0 @@
-{
-	"python.terminal.useEnvFile": true,
-	"python.envFile": "${workspaceFolder}/backend/.env"
-}
