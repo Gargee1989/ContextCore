@@ -1,5 +1,5 @@
 """
-ContentCore Backend - LLM Service
+ContextCore Backend - LLM Service
 
 Handles LLM communication with Gemini, NVIDIA NIM, or OpenAI, response parsing,
 strict JSON validation, error translation, and privacy protection.
@@ -30,7 +30,7 @@ from backend.exceptions import (
     DefinitionUnavailableException,
 )
 
-logger = logging.getLogger("contentcore.llm_service")
+logger = logging.getLogger("contextcore.llm_service")
 
 # Required keys for the LLM response
 REQUIRED_RESPONSE_KEYS = {
@@ -111,7 +111,7 @@ class LLMService:
     def parse_and_validate_response(self, raw_content: str) -> DefineResponse:
         """
         Parses raw text from the LLM, validates structure, and ensures compliance
-        with the strict ContentCore output contract.
+        with the strict ContextCore output contract.
         """
         cleaned = self.clean_markdown_fences(raw_content)
 

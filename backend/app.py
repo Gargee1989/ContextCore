@@ -1,5 +1,5 @@
 """
-ContentCore Backend - FastAPI Application
+ContextCore Backend - FastAPI Application
 
 Provides the POST /define API endpoint for the PDF & E-book Reader Extension.
 Enforces strict input validation, privacy safeguards, and standardized error envelopes.
@@ -18,7 +18,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from backend.config import settings, SUPPORTED_PROVIDERS
 from backend.exceptions import (
-    ContentCoreException,
+    ContextCoreException,
     InvalidInputException,
 )
 from backend.schemas import (
@@ -36,7 +36,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
-logger = logging.getLogger("contentcore.api")
+logger = logging.getLogger("contextcore.api")
 
 
 def require_backend_auth(request: Request) -> None:
@@ -57,14 +57,14 @@ def require_backend_auth(request: Request) -> None:
 async def lifespan(app: FastAPI):
     """Application startup and shutdown lifecycle handler."""
     logger.info(
-        f"Starting ContentCore backend (Provider: {settings.provider_name}, Model: {settings.model}, Configured: {settings.is_configured})"
+        f"Starting Context Core backend (Provider: {settings.provider_name}, Model: {settings.model}, Configured: {settings.is_configured})"
     )
     yield
-    logger.info("ContentCore backend shut down.")
+    logger.info("Context Core backend shut down.")
 
 
 app = FastAPI(
-    title="ContentCore Smart PDF & E-Book Reader API",
+    title="Context Core Smart PDF & E-Book Reader API",
     description="Context-aware definition engine for selected document text.",
     version="1.0.0",
     lifespan=lifespan,
@@ -83,11 +83,11 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 # Exception Handlers
 # ---------------------------------------------------------------------------
-@app.exception_handler(ContentCoreException)
-async def handle_contentcore_exception(
-    request: Request, exc: ContentCoreException
+@app.exception_handler(ContextCoreException)
+async def handle_contextcore_exception(
+    request: Request, exc: ContextCoreException
 ) -> JSONResponse:
-    """Handles domain-specific ContentCore exceptions."""
+    """Handles domain-specific ContextCore exceptions."""
     return JSONResponse(
         status_code=exc.status_code,
         content={

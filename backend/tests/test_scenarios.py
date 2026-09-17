@@ -1,5 +1,5 @@
 """
-Comprehensive test suite covering all 23 required ContentCore backend test cases.
+Comprehensive test suite covering all 23 required ContextCore backend test cases.
 """
 
 import json

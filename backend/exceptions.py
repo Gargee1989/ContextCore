@@ -1,12 +1,12 @@
 """
-ContentCore Backend - Domain Exceptions
+ContextCore Backend - Domain Exceptions
 
 Custom exception classes that map to standardized client error responses.
 """
 
 
-class ContentCoreException(Exception):
-    """Base exception for ContentCore errors."""
+class ContextCoreException(Exception):
+    """Base exception for ContextCore errors."""
 
     def __init__(self, status_code: int, code: str, message: str) -> None:
         super().__init__(message)
@@ -15,7 +15,11 @@ class ContentCoreException(Exception):
         self.message = message
 
 
-class InvalidInputException(ContentCoreException):
+# Backward-compatibility alias
+ContentCoreException = ContextCoreException
+
+
+class InvalidInputException(ContextCoreException):
     """HTTP 400 - Validation failure or missing input."""
 
     def __init__(
@@ -29,7 +33,7 @@ class InvalidInputException(ContentCoreException):
         )
 
 
-class RateLimitedException(ContentCoreException):
+class RateLimitedException(ContextCoreException):
     """HTTP 429 - Upstream provider or local rate limit exceeded."""
 
     def __init__(
@@ -43,7 +47,7 @@ class RateLimitedException(ContentCoreException):
         )
 
 
-class ServiceTimeoutException(ContentCoreException):
+class ServiceTimeoutException(ContextCoreException):
     """HTTP 504 - Upstream provider timed out."""
 
     def __init__(
@@ -57,7 +61,7 @@ class ServiceTimeoutException(ContentCoreException):
         )
 
 
-class DefinitionUnavailableException(ContentCoreException):
+class DefinitionUnavailableException(ContextCoreException):
     """HTTP 503 - Provider error, parsing failure, or temporary unavailability."""
 
     def __init__(

@@ -1,5 +1,5 @@
 """
-ContentCore Backend - Request and Response Schemas
+ContextCore Backend - Request and Response Schemas
 
 Defines Pydantic models for input normalization, strict validation, and output formatting.
 """

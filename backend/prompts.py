@@ -1,5 +1,5 @@
 """
-ContentCore Backend - Prompt Definitions
+ContextCore Backend - Prompt Definitions
 
 Contains the system prompt instructions and user message formatting template
 for the contextual understanding engine.

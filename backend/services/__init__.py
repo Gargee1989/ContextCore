@@ -1,1 +1,1 @@
-"""ContentCore Backend Services Package"""
+"""ContextCore Backend Services Package"""

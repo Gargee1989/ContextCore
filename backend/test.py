@@ -1,10 +1,10 @@
 """
-ContentCore - Backend LLM API Direct Connection & Test
+ContextCore - Backend LLM API Direct Connection & Test
 
 Directly calls the configured LLM API provider by taking inputs (provider, API key, model),
 or falling back to environment variables from backend/.env.
 
-The 3 supported providers (defined in STEP.md) are:
+The 3 supported providers (defined in README.md) are:
 1. Google Gemini (default model: gemini-3.6-flash)
 2. OpenAI (default model: gpt-4o-mini)
 3. NVIDIA NIM (default model: meta/llama-3.2-11b-vision-instruct)
@@ -90,7 +90,7 @@ def call_llm(
     api_key: str,
     model: str | None = None,
     base_url: str | None = None,
-    prompt: str = "Say 'ContentCore backend is successfully connected!' in a single short sentence.",
+    prompt: str = "Say 'Context Core backend is successfully connected!' in a single short sentence.",
 ) -> str:
     """
     Directly calls the specified LLM provider with the given API key, model, and prompt.
@@ -103,7 +103,7 @@ def call_llm(
     )
 
     if provider_name == PROVIDER_GEMINI:
-        # First attempt OpenAI-compatible endpoint as documented in STEP.md
+        # First attempt OpenAI-compatible endpoint as documented in README.md
         try:
             client = OpenAI(
                 base_url=resolved_base_url or DEFAULT_BASE_URLS[PROVIDER_GEMINI],
@@ -115,7 +115,7 @@ def call_llm(
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are a helpful assistant verifying system connectivity for ContentCore.",
+                        "content": "You are a helpful assistant verifying system connectivity for Context Core.",
                     },
                     {"role": "user", "content": prompt},
                 ],
@@ -147,7 +147,7 @@ def call_llm(
         messages=[
             {
                 "role": "system",
-                "content": "You are a helpful assistant verifying system connectivity for ContentCore.",
+                "content": "You are a helpful assistant verifying system connectivity for Context Core.",
             },
             {"role": "user", "content": prompt},
         ],
@@ -162,7 +162,7 @@ def test_connection(
     api_key: str | None = None,
     model: str | None = None,
     base_url: str | None = None,
-    prompt: str = "Say 'ContentCore backend is successfully connected!' in a single short sentence.",
+    prompt: str = "Say 'Context Core backend is successfully connected!' in a single short sentence.",
 ) -> str | None:
     """
     Validates input parameters (or prompts for them interactively), executes the API call,
@@ -171,9 +171,9 @@ def test_connection(
     # Interactive input handling if run directly in a terminal and no credentials supplied
     if not api_key and sys.stdin.isatty():
         print("=" * 65)
-        print("ContentCore - LLM API Direct Connection & Test")
+        print("Context Core - LLM API Direct Connection & Test")
         print("=" * 65)
-        print("Supported Providers (from STEP.md):")
+        print("Supported Providers (from README.md):")
         print("  [1] Google Gemini (default model: gemini-3.6-flash)")
         print("  [2] OpenAI        (default model: gpt-4o-mini)")
         print("  [3] NVIDIA NIM    (default model: meta/llama-3.2-11b-vision-instruct)")
@@ -329,7 +329,7 @@ def main():
     )
     parser.add_argument(
         "--prompt",
-        default="Say 'ContentCore backend is successfully connected!' in a single short sentence.",
+        default="Say 'Context Core backend is successfully connected!' in a single short sentence.",
         help="Test prompt to send",
     )
 

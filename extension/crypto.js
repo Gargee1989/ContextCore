@@ -14,7 +14,8 @@
 		return url.toString();
 	}
 
-	const KEY_STORAGE = "contentCoreEncryptionKey";
+	const KEY_STORAGE = "contextCoreEncryptionKey";
+	const LEGACY_KEY_STORAGE = "contentCoreEncryptionKey";
 	const ENCRYPTED_SUFFIX = "Encrypted";
 	const AES_ALGORITHM = "AES-GCM";
 	const KEY_LENGTH = 256;
@@ -32,15 +33,16 @@
 	}
 
 	async function getKey() {
-		const stored = await chrome.storage.local.get(KEY_STORAGE);
-		if (stored[KEY_STORAGE]) {
+		const stored = await chrome.storage.local.get([KEY_STORAGE, LEGACY_KEY_STORAGE]);
+		const storedKey = stored[KEY_STORAGE] || stored[LEGACY_KEY_STORAGE];
+		if (storedKey) {
 			return crypto.subtle.importKey(
-			"raw",
-			fromBase64(stored[KEY_STORAGE]),
-			{ name: AES_ALGORITHM },
-			false,
-			["encrypt", "decrypt"]
-		);
+				"raw",
+				fromBase64(storedKey),
+				{ name: AES_ALGORITHM },
+				false,
+				["encrypt", "decrypt"]
+			);
 		}
 
 		const key = await crypto.subtle.generateKey(
@@ -91,6 +93,11 @@
 
 	async function readSettings() {
 		const settings = await chrome.storage.local.get([
+			"contextCoreEndpoint",
+			"contextCoreCredentialId",
+			"contextCoreCredentialTokenEncrypted",
+			"contextCoreProvider",
+			"contextCoreLlmModel",
 			"contentCoreEndpoint",
 			"contentCoreCredentialId",
 			"contentCoreCredentialTokenEncrypted",
@@ -98,30 +105,60 @@
 			"contentCoreLlmModel"
 		]);
 
-		const decrypted = { ...settings };
-		if (settings.contentCoreCredentialTokenEncrypted) {
+		const credentialId = settings.contextCoreCredentialId || settings.contentCoreCredentialId || "";
+		const tokenEncrypted = settings.contextCoreCredentialTokenEncrypted || settings.contentCoreCredentialTokenEncrypted || "";
+		const endpoint = settings.contextCoreEndpoint || settings.contentCoreEndpoint || BACKEND_ENDPOINT;
+		const provider = settings.contextCoreProvider || settings.contentCoreProvider || "";
+		const llmModel = settings.contextCoreLlmModel || settings.contentCoreLlmModel || "";
+
+		const decrypted = {
+			contextCoreEndpoint: endpoint,
+			contextCoreCredentialId: credentialId,
+			contextCoreCredentialTokenEncrypted: tokenEncrypted,
+			contextCoreProvider: provider,
+			contextCoreLlmModel: llmModel,
+			contentCoreEndpoint: endpoint,
+			contentCoreCredentialId: credentialId,
+			contentCoreCredentialTokenEncrypted: tokenEncrypted,
+			contentCoreProvider: provider,
+			contentCoreLlmModel: llmModel,
+			contextCoreCredentialToken: "",
+			contentCoreCredentialToken: ""
+		};
+
+		if (tokenEncrypted) {
 			try {
-				decrypted.contentCoreCredentialToken = await decrypt(
-					settings.contentCoreCredentialTokenEncrypted
-				);
+				const plainToken = await decrypt(tokenEncrypted);
+				decrypted.contextCoreCredentialToken = plainToken;
+				decrypted.contentCoreCredentialToken = plainToken;
 			} catch {
+				decrypted.contextCoreCredentialToken = "";
 				decrypted.contentCoreCredentialToken = "";
 			}
 		}
+
 		await chrome.storage.local.remove([
+			"contextCoreApiKey",
+			"contextCoreApiKeyEncrypted",
+			"contextCoreLlmApiKey",
+			"contextCoreLlmApiKeyEncrypted",
 			"contentCoreApiKey",
 			"contentCoreApiKeyEncrypted",
 			"contentCoreLlmApiKey",
 			"contentCoreLlmApiKeyEncrypted",
 		]);
+
 		return decrypted;
 	}
 
-	globalThis.ContentCoreCrypto = {
+	const ContextCoreCrypto = {
 		encrypt,
 		decrypt,
 		readSettings,
 		BACKEND_ENDPOINT,
 		getCredentialsEndpoint,
 	};
+
+	globalThis.ContextCoreCrypto = ContextCoreCrypto;
+	globalThis.ContentCoreCrypto = ContextCoreCrypto;
 })();

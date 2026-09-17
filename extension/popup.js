@@ -6,7 +6,54 @@ if (settingsForm) {
 	const llmModel = document.querySelector("#llm-model");
 	const clearCredential = document.querySelector("#clear-credential");
 	const status = document.querySelector("#status");
+	const submitBtn = settingsForm.querySelector('button[type="submit"]');
 	let hasSavedCredential = false;
+
+	function checkKeyProviderMismatch(selectedProvider, key) {
+		const trimmedKey = key.trim();
+		if (!trimmedKey) return null;
+
+		let detectedProvider = null;
+		let detectedPrefix = null;
+		if (trimmedKey.startsWith("AIza")) {
+			detectedProvider = "Google Gemini";
+			detectedPrefix = "AIza";
+		} else if (trimmedKey.startsWith("sk-")) {
+			detectedProvider = "OpenAI";
+			detectedPrefix = "sk-";
+		} else if (trimmedKey.startsWith("nvapi-")) {
+			detectedProvider = "NVIDIA NIM";
+			detectedPrefix = "nvapi-";
+		}
+
+		if (detectedProvider && selectedProvider && detectedProvider !== selectedProvider) {
+			return `The API key entered appears to be for ${detectedProvider} (starts with '${detectedPrefix}'), but ${selectedProvider} was selected. Please select the correct provider or check your key.`;
+		}
+
+		return null;
+	}
+
+	function setSubmitLoading(loading) {
+		if (!submitBtn) return;
+		if (loading) {
+			submitBtn.disabled = true;
+			provider.disabled = true;
+			llmApiKey.disabled = true;
+			llmModel.disabled = true;
+			clearCredential.disabled = true;
+			submitBtn.innerHTML = `<span class="btn-spinner" aria-hidden="true"></span><span>Verifying key...</span>`;
+		} else {
+			submitBtn.disabled = false;
+			submitBtn.innerHTML = `
+				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+					<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+					<polyline points="17 21 17 13 7 13 7 21"></polyline>
+					<polyline points="7 3 7 8 15 8"></polyline>
+				</svg>
+				<span>Save settings</span>
+			`;
+		}
+	}
 
 	function setCredentialFieldsLocked(locked) {
 		hasSavedCredential = locked;
@@ -19,25 +66,32 @@ if (settingsForm) {
 			: "Enter or replace your provider key";
 	}
 
-	ContentCoreCrypto.readSettings().then((settings) => {
-			provider.value = settings.contentCoreProvider || "";
-			llmModel.value = settings.contentCoreLlmModel || "";
-			setCredentialFieldsLocked(
-				Boolean(settings.contentCoreCredentialId && settings.contentCoreCredentialToken)
-			);
-		});
+	const CryptoClient = globalThis.ContextCoreCrypto || globalThis.ContentCoreCrypto;
+
+	CryptoClient.readSettings().then((settings) => {
+		provider.value = settings.contextCoreProvider || settings.contentCoreProvider || "";
+		llmModel.value = settings.contextCoreLlmModel || settings.contentCoreLlmModel || "";
+		setCredentialFieldsLocked(
+			Boolean(
+				(settings.contextCoreCredentialId || settings.contentCoreCredentialId) &&
+				(settings.contextCoreCredentialToken || settings.contentCoreCredentialToken)
+			)
+		);
+	});
 
 	clearCredential.addEventListener("click", async () => {
 		try {
-			const settings = await ContentCoreCrypto.readSettings();
-			if (settings.contentCoreCredentialId && settings.contentCoreCredentialToken) {
+			const settings = await CryptoClient.readSettings();
+			const credId = settings.contextCoreCredentialId || settings.contentCoreCredentialId;
+			const credToken = settings.contextCoreCredentialToken || settings.contentCoreCredentialToken;
+			if (credId && credToken) {
 				try {
 					await fetch(
-						`${ContentCoreCrypto.getCredentialsEndpoint()}/${encodeURIComponent(settings.contentCoreCredentialId)}`,
+						`${CryptoClient.getCredentialsEndpoint()}/${encodeURIComponent(credId)}`,
 						{
 							method: "DELETE",
 							headers: {
-								"x-credential-token": settings.contentCoreCredentialToken
+								"x-credential-token": credToken
 							}
 						}
 					);
@@ -46,6 +100,14 @@ if (settingsForm) {
 				}
 			}
 			await chrome.storage.local.remove([
+				"contextCoreCredentialId",
+				"contextCoreCredentialTokenEncrypted",
+				"contextCoreProvider",
+				"contextCoreLlmModel",
+				"contextCoreApiKey",
+				"contextCoreApiKeyEncrypted",
+				"contextCoreLlmApiKey",
+				"contextCoreLlmApiKeyEncrypted",
 				"contentCoreCredentialId",
 				"contentCoreCredentialTokenEncrypted",
 				"contentCoreProvider",
@@ -71,24 +133,41 @@ if (settingsForm) {
 
 	settingsForm.addEventListener("submit", async (event) => {
 		event.preventDefault();
+		const enteredKey = llmApiKey.value.trim();
+		const selectedProvider = provider.value;
+
+		if (enteredKey) {
+			if (hasSavedCredential) {
+				status.textContent = "Remove the saved provider key before adding another.";
+				status.className = "error";
+				return;
+			}
+			if (!selectedProvider) {
+				status.textContent = "Select a provider before registering its API key.";
+				status.className = "error";
+				return;
+			}
+			const mismatch = checkKeyProviderMismatch(selectedProvider, enteredKey);
+			if (mismatch) {
+				status.textContent = mismatch;
+				status.className = "error";
+				return;
+			}
+		}
+
+		setSubmitLoading(true);
 		try {
 			let credentialId;
 			let credentialToken;
-			if (llmApiKey.value.trim()) {
-				if (hasSavedCredential) {
-					throw new Error("Remove the saved provider key before adding another.");
-				}
-				if (!provider.value) {
-					throw new Error("Select a provider before registering its API key.");
-				}
-				const response = await fetch(ContentCoreCrypto.getCredentialsEndpoint(), {
+			if (enteredKey) {
+				const response = await fetch(CryptoClient.getCredentialsEndpoint(), {
 					method: "POST",
 					headers: {
 						"Content-Type": "application/json"
 					},
 					body: JSON.stringify({
-						provider: provider.value,
-						api_key: llmApiKey.value.trim(),
+						provider: selectedProvider,
+						api_key: enteredKey,
 						model: llmModel.value.trim() || undefined
 					})
 				});
@@ -107,19 +186,27 @@ if (settingsForm) {
 				credentialToken = registered.credential_token;
 				setCredentialFieldsLocked(true);
 			} else {
-				const current = await ContentCoreCrypto.readSettings();
-				credentialId = current.contentCoreCredentialId || "";
-				credentialToken = current.contentCoreCredentialToken || "";
+				const current = await CryptoClient.readSettings();
+				credentialId = current.contextCoreCredentialId || current.contentCoreCredentialId || "";
+				credentialToken = current.contextCoreCredentialToken || current.contentCoreCredentialToken || "";
 			}
 
-			const encryptedCredentialToken = await ContentCoreCrypto.encrypt(credentialToken);
+			const encryptedCredentialToken = await CryptoClient.encrypt(credentialToken);
 			await chrome.storage.local.set({
+				contextCoreCredentialId: credentialId,
+				contextCoreCredentialTokenEncrypted: encryptedCredentialToken,
+				contextCoreProvider: provider.value.trim(),
+				contextCoreLlmModel: llmModel.value.trim(),
 				contentCoreCredentialId: credentialId,
 				contentCoreCredentialTokenEncrypted: encryptedCredentialToken,
 				contentCoreProvider: provider.value.trim(),
 				contentCoreLlmModel: llmModel.value.trim()
 			});
 			await chrome.storage.local.remove([
+				"contextCoreApiKey",
+				"contextCoreApiKeyEncrypted",
+				"contextCoreLlmApiKey",
+				"contextCoreLlmApiKeyEncrypted",
 				"contentCoreApiKey",
 				"contentCoreApiKeyEncrypted",
 				"contentCoreLlmApiKey",
@@ -127,9 +214,17 @@ if (settingsForm) {
 				"contentCoreProviderLegacy",
 				"contentCoreLlmModelLegacy"
 			]);
-			status.textContent = "Settings saved.";
+			setSubmitLoading(false);
+			status.textContent = "✓ Key verified and saved successfully.";
 			status.className = "success";
 		} catch (error) {
+			setSubmitLoading(false);
+			if (!hasSavedCredential) {
+				provider.disabled = false;
+				llmApiKey.disabled = false;
+				llmModel.disabled = false;
+				clearCredential.disabled = true;
+			}
 			status.textContent = error.message || "Unable to save settings.";
 			status.className = "error";
 		}

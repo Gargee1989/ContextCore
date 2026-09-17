@@ -1,5 +1,5 @@
 """
-ContentCore Backend Configuration
+ContextCore Backend Configuration
 
     Loads environment variables, defines operational thresholds, and configures
     the LLM provider (Gemini, NVIDIA NIM, or OpenAI) without exposing credentials.

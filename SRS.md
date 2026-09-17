@@ -1,15 +1,15 @@
-# Software Requirements Specification
+# Software Requirements Specification (SRS)
 
-## Context-Aware Smart PDF/E-book Reader Extension
+## Context Core: Context-Aware Smart Reading and PDF Extension
 
-**Prepared in accordance with IEEE 830 / IEEE 29148 SRS Standard**
+**Prepared in accordance with IEEE 830 / IEEE 29148 Standard**
 
-| | |
+| Attribute | Details |
 |---|---|
-| **Document Version** | 1.0 (Draft) |
-| **Date** | September 08, 2026 |
-| **Prepared By** | [Team Name] |
-| **Status** | Draft — some feature sections intentionally left as placeholders for team input |
+| **Document Version** | 2.0 |
+| **Date** | September 17, 2026 |
+| **Product Name** | Context Core |
+| **Status** | Approved Specification |
 
 ---
 
@@ -18,165 +18,184 @@
 1. Introduction
 2. Overall Description
 3. External Interface Requirements
-4. System Features
-5. Other Nonfunctional Requirements
+4. System Features and Functional Requirements
+5. Non-Functional Requirements
+6. Security and Privacy Requirements
 
 ---
 
 ## 1. Introduction
 
 ### 1.1 Purpose
-This document specifies the software requirements for a browser/PDF-reader extension that provides **context-aware word and phrase meanings** for readers of digital books (PDF/e-book format). It is intended to guide the development team, evaluators, and stakeholders through the functional and non-functional requirements of the Minimum Viable Product (MVP) and its subsequent scaled version.
+This document specifies the software requirements for **Context Core**, an AI-powered browser extension and dedicated document reading platform. The system provides instantaneous, context-aware definitions, tone insights, simplified passages, and vocabulary building tools for digital reading (webpages, PDFs, and e-books). It serves as the baseline for product development, testing, architectural compliance, and business deployment.
 
 ### 1.2 Document Conventions
-- "The system" refers to the Context-Aware PDF Reader Extension.
-- Priority levels: **High**, **Medium**, **Low**.
-- Requirement IDs follow the format `FR-XX` (Functional Requirement) and `NFR-XX` (Non-Functional Requirement).
-- "TBD" marks sections the team will complete manually.
+- **The system**: Refers to Context Core (browser extension, PDF reader, and FastAPI backend).
+- **Priority levels**: **High**, **Medium**, **Low**.
+- **Requirement IDs**:
+  - `FR-XX`: Functional Requirement
+  - `NFR-XX`: Non-Functional Requirement
+  - `SEC-XX`: Security & Credential Management Requirement
 
-### 1.3 Intended Audience and Reading Suggestions
-- **Developers** — Sections 3 and 4 for interface and feature requirements.
-- **Project mentors / evaluators** — Sections 1 and 2 for scope and rationale.
-- **Product/business stakeholders** — Section 2.2, 2.3 and Appendix (business model).
-Reading order: Sections 1 → 2 → 3 → 4 → 5 sequentially.
+### 1.3 Intended Audience
+- **Engineering and QA Teams**: Architecture, implementation, and test suite design.
+- **Product and Business Stakeholders**: Feature roadmaps, monetization models, and commercial licensing compliance.
+- **Security Auditors**: Credential isolation and cryptographic flow evaluation.
 
 ### 1.4 Product Scope
-The product is a lightweight extension (browser extension and/or in-app PDF viewer plugin) that lets a reader select any word or phrase inside a PDF/e-book and instantly view its **contextual meaning** — i.e., the definition as it applies to the surrounding sentence, paragraph, or chapter — without leaving the page or opening a new tab.
+Context Core eliminates reading friction and cognitive interruption caused by external dictionary searches. When a reader selects any word or phrase in a webpage or PDF document, Context Core extracts surrounding contextual cues and uses Large Language Models (LLMs) to explain the word precisely as used in that specific sentence or paragraph.
 
-**Objective:** Reduce reading interruption caused by dictionary look-ups, thereby improving reading speed, comprehension, and completion rate of chapters/books.
-
-**Out of scope for MVP:** audiobook narration, handwriting/annotation tools, multi-language translation (may be a future phase), full offline LLM inference.
-
-### 1.5 References
-- IEEE Std 830-1998 — Recommended Practice for Software Requirements Specifications
-- IEEE Std 29148-2011 — Systems and Software Engineering — Life Cycle Processes — Requirements Engineering
-- PDF.js documentation (Mozilla) — for in-browser PDF rendering
-- Anthropic/OpenAI/Gemini API documentation — for LLM-based contextual definition generation
+**Key Scope Inclusions:**
+- Contextual definitions, tone analysis, synonyms, examples, and sentence simplification.
+- Dedicated standalone PDF reader powered by PDF.js with in-document search/find and adjustable zoom.
+- In-page and in-PDF persistent highlighting and word saving.
+- Vocabulary management dashboard for reviewing, filtering, and studying saved words.
+- Multi-provider LLM support (Google Gemini, OpenAI, NVIDIA NIM).
+- Zero-trust Bring Your Own Key (BYOK) architecture with client and server-side encryption.
 
 ---
 
 ## 2. Overall Description
 
 ### 2.1 Product Perspective
-The system is a **new, standalone product** delivered as:
-1. A browser extension (Chrome/Edge, Manifest V3) that overlays on PDF files opened in-browser, **and/or**
-2. A lightweight web-based PDF reader (hosted app) with the same capability built in.
+Context Core operates as a distributed client-server architecture:
+1. **Client Extension (Chromium Manifest V3)**:
+   - Content script injected into regular web pages.
+   - Dedicated local and remote PDF reader application (`pdf-viewer.html`).
+   - Extension popup interface for configuration and credential onboarding (`popup.html`).
+   - Vocabulary review interface (`saved-words.html`).
+2. **FastAPI Backend Service (`backend/app.py`)**:
+   - Centralized API gateway for prompt generation, schema validation, and provider dispatch.
+   - Server-side AES-GCM credential encryption and token validation service.
 
-It integrates with a third-party Large Language Model (LLM) API to generate context-aware definitions, rather than relying on a static dictionary database alone.
-
-### 2.2 Product Functions (High-Level)
-- Detect and capture a word/phrase selected by the user inside a rendered PDF.
-- Extract surrounding context (sentence/paragraph/page) around the selection.
-- Send the word + context to an LLM API and retrieve a contextual definition.
-- Display the definition inline (tooltip/side-panel) without a new tab or page navigation.
-- Cache previously looked-up words per document to reduce repeated API calls.
-- Track reading engagement metrics (pages read, time per page) for future scaling/analytics.
-
-### 2.3 User Classes and Characteristics
-| User Class | Description | Technical Expertise |
+### 2.2 User Classes and Characteristics
+| User Class | Description | Primary Needs |
 |---|---|---|
-| Students (primary) | College/school students reading textbooks/novels as PDFs | Low–Medium |
-| Casual e-book readers | General readers of fiction/non-fiction PDFs | Low |
-| Educators (secondary) | May recommend the tool to students | Medium |
+| Active Readers & Students | Students, researchers, and avid book readers reading dense PDFs and articles. | Instant comprehension without context switching; vocabulary retention. |
+| Professional & Technical Readers | Engineers, lawyers, and analysts reading domain-specific terminology. | Accurate contextual nuances, tone breakdown, and passage simplification. |
+| Power Users (BYOK) | Users with existing LLM accounts (Gemini, OpenAI, NVIDIA). | Direct API key integration, custom model selection, zero tracking. |
 
-### 2.4 Operating Environment
-- **Client side:** Modern Chromium-based browsers (Chrome, Edge, Brave) — Manifest V3 extension environment; OR a responsive web app accessible via any modern browser.
-- **Server side:** Cloud-hosted backend (e.g., Node.js/Python) deployed on a serverless or lightweight VM platform (Vercel/Render/Railway for MVP).
-- **Third-party dependency:** LLM API (Anthropic Claude API / OpenAI API / Gemini API — team to finalize).
+### 2.3 Operating Environment
+- **Client Platforms**: Chromium-based desktop browsers (Google Chrome, Microsoft Edge, Brave) supporting Manifest V3.
+- **Server Environment**: Python 3.10+ runtime, FastAPI, Uvicorn asynchronous server.
+- **Upstream LLM Providers**: Google Gemini API, OpenAI API, NVIDIA NIM API (OpenAI-compatible endpoints).
 
-### 2.5 Design and Implementation Constraints
-- Must work within a **5-day MVP build timeline**.
-- Must operate at **zero/low cost** for the end user (student-facing free tier).
-- LLM API usage costs must be optimized (e.g., short context windows, caching, rate limiting).
-- Must not require the user to open a new browser tab for a lookup.
-- Extension must comply with Chrome Web Store Manifest V3 policies (no remote code execution beyond permitted patterns).
-
-### 2.6 User Documentation
-- A short in-app onboarding tooltip (first-use tutorial) explaining "select a word → see contextual meaning."
-- A README/help page hosted alongside the extension listing.
-
-### 2.7 Assumptions and Dependencies
-- Assumes the PDF text layer is selectable (i.e., not a scanned/image-only PDF, unless OCR is added later).
-- Assumes availability and uptime of the chosen third-party LLM API.
-- Assumes users have an active internet connection (no offline mode in MVP).
+### 2.4 Design and Implementation Constraints
+- Compliance with Google Chrome Web Store Manifest V3 security and privacy policies (no unvetted remote scripts).
+- Strict separation between extension client and third-party LLM provider keys.
+- Proprietary commercial licensing model.
 
 ---
 
 ## 3. External Interface Requirements
 
 ### 3.1 User Interfaces
-- **Selection popup:** Appears within ~1–2 seconds of word/phrase selection, positioned near the cursor, non-blocking of surrounding text.
-- **Side panel (optional/Phase 2):** Persistent panel showing lookup history for the current chapter.
-- Minimalist design — no more than 2 primary actions visible in the popup (e.g., "Show meaning," "Save word").
+- **Floating Definition Tooltip**: Non-intrusive tooltip anchored to the selected text offering **Explain** and **Save** actions.
+- **Definition Display Modal/Card**: Shows word meaning, tone, synonym, illustrative example, and simplified context.
+- **PDF Reader Workspace (`pdf-viewer.html`)**:
+  - Toolbar with File Picker, URL Loader, Find Bar, and Zoom controls.
+  - Page viewport with interactive text selection layer.
+- **Popup Settings Interface (`popup.html`)**:
+  - Provider selector (Gemini, OpenAI, NVIDIA NIM).
+  - API Key and Model input fields with real-time verification indicators.
+  - **Remove saved provider key** control to clear or rotate active credentials.
+- **Vocabulary Review Page (`saved-words.html`)**:
+  - Card-based view of saved vocabulary with search filters, date sorting, and deletion options.
 
-### 3.2 Hardware Interfaces
-Not applicable — software-only product running on standard consumer laptops/desktops (and mobile browser, if extended later).
-
-### 3.3 Software Interfaces
-- **PDF Rendering Engine:** PDF.js (or equivalent) to extract text and coordinate positions.
-- **LLM API:** RESTful API calls (HTTPS, JSON request/response) to a contextual-definition endpoint.
-- **Browser Extension APIs:** `chrome.tabs`, `chrome.scripting`, `chrome.storage` (for caching).
-
-### 3.4 Communications Interfaces
-- HTTPS for all client–server and server–LLM API communication.
-- JSON as the data interchange format.
-
----
-
-## 4. System Features
-
-*(This section defines core MVP features. Team to append additional feature sub-sections manually as marked.)*
-
-### 4.1 Feature: Contextual Word/Phrase Lookup
-**Priority:** High
-**Description:** Reader selects/drags over a word or short phrase in the PDF; the system displays its meaning as interpreted within the surrounding sentence/paragraph/chapter context — not a generic dictionary definition.
-
-**Functional Requirements:**
-- **FR-01:** The system shall detect a text selection event within the rendered PDF viewer.
-- **FR-02:** The system shall extract the selected word/phrase plus a configurable window of surrounding text (e.g., ±2 sentences or the current paragraph) as context.
-- **FR-03:** The system shall send the word and context to the LLM API and request a concise, context-specific definition.
-- **FR-04:** The system shall display the returned definition in an inline popup within 3 seconds under normal network conditions.
-- **FR-05:** The system shall NOT open a new browser tab or navigate away from the current page during lookup.
-- **FR-06:** The system shall cache word+context lookups locally per document session to avoid duplicate API calls for repeated selections.
-
-### 4.2 Feature: Reading Session Tracking (for scaling/analytics)
-**Priority:** Medium
-**Functional Requirements:**
-- **FR-07:** The system shall log pages read and time spent per session (locally or to backend, per privacy policy).
-- **FR-08:** The system shall allow the user to view basic reading progress (e.g., pages completed vs. planned).
-
-### 4.3 Feature: Feedback Collection
-**Priority:** Medium
-**Functional Requirements:**
-- **FR-09:** The system shall provide a lightweight in-app feedback form/button.
-- **FR-10:** The system shall NOT request payment; feedback shall be the sole "currency" requested from users in the MVP phase.
+### 3.2 Software and Communication Interfaces
+- **PDF Engine**: PDF.js for rendering and layout coordinates.
+- **Backend API**:
+  - `POST /define`: Accepts word, context, and optional credential reference; returns structured definition JSON.
+  - `POST /credentials`: Registers and validates provider credentials; returns encrypted reference.
+  - `GET /health`: Service health and availability probe.
+- **Protocol**: HTTPS / WSS for production traffic, JSON data interchange.
 
 ---
 
-## 5. Other Nonfunctional Requirements
+## 4. System Features and Functional Requirements
 
-### 5.1 Performance Requirements
-- **NFR-01:** Contextual definition response time shall not exceed 3 seconds (95th percentile) under normal load.
-- **NFR-02:** The extension shall not increase PDF page load time by more than 500ms.
+### 4.1 Feature 1: Context-Aware Definition and Analysis
+**Priority:** High  
+**Description:** Generates structured semantic explanations tailored to the exact context of the surrounding sentence.
 
-### 5.2 Safety Requirements
-Not applicable (no physical safety risk).
+- **FR-01**: The system shall detect text selection events on supported web pages and PDF reader views.
+- **FR-02**: The system shall extract surrounding text (sentence and paragraph boundary) as context.
+- **FR-03**: The backend shall query the active LLM provider with structured system prompts.
+- **FR-04**: The response shall return structured data containing:
+  - `meaning`: Context-specific definition.
+  - `tone`: Contextual tone (e.g., formal, sarcastic, technical, archaic).
+  - `synonym`: Relevant synonym applicable in the sentence.
+  - `example`: Secondary illustrative sentence.
+  - `simplified_passage`: Simplified version of the source sentence.
 
-### 5.3 Security Requirements
-- **NFR-03:** All API communication shall be encrypted via HTTPS/TLS.
-- **NFR-04:** No user document content shall be stored on the server beyond the transient context needed for a single API call, unless the user explicitly opts into cloud sync.
-- **NFR-05:** API keys shall never be exposed in client-side code.
+### 4.2 Feature 2: Dedicated PDF Reader with Find and Zoom
+**Priority:** High  
+**Description:** Embedded document reader supporting local PDF files and remote URLs with interactive reading tools.
 
-### 5.4 Software Quality Attributes
-- **Usability:** A second-year engineering student or a non-technical reader should be able to use the core feature without instructions, within their first lookup attempt.
-- **Reliability:** Graceful fallback message if the LLM API is unavailable (e.g., "Definition service temporarily unavailable — try again").
-- **Portability:** Core logic separated from browser-specific code to allow future porting to Firefox/mobile.
-- **Maintainability:** Modular codebase (separate modules for PDF parsing, context extraction, API integration, UI rendering).
+- **FR-05**: The system shall render PDF files within a dedicated extension tab using PDF.js.
+- **FR-06**: The system shall provide an in-document **Find** bar that highlights search query matches across all pages.
+- **FR-07**: The system shall display total match counts (`X/Y`) and provide Next/Previous navigation buttons.
+- **FR-08**: The system shall provide **Zoom** controls (zoom in, zoom out, preset scaling from 50% to 200%, and percentage indicator).
 
-### 5.5 Business/Operational Requirements
-- **NFR-06:** The product shall be free of cost for student users in the MVP and initial scaling phase.
-- **NFR-07:** The system shall include a feedback mechanism visible on every screen/session, used to prioritize the product roadmap.
+### 4.3 Feature 3: In-Page Highlighting and Word Persistence
+**Priority:** High  
+**Description:** Allows readers to save looked-up terms and highlight them in the active reading view.
+
+- **FR-09**: The system shall provide a **Save** action in the definition card.
+- **FR-10**: Saving a word shall apply a persistent visual highlight to the selected text in the document DOM / PDF text layer.
+- **FR-11**: The system shall store saved terms, definitions, context, and timestamps in local client storage.
+
+### 4.4 Feature 4: Vocabulary Review Dashboard
+**Priority:** Medium  
+**Description:** Dedicated dashboard for studying and organizing saved vocabulary.
+
+- **FR-12**: The system shall provide a Vocabulary dashboard accessible via the extension popup.
+- **FR-13**: The dashboard shall display all saved words along with definitions, tone, examples, and original context.
+- **FR-14**: The dashboard shall allow users to search/filter terms and remove individual saved entries.
+
+### 4.5 Feature 5: Multi-Provider LLM Integration and Model Selection
+**Priority:** High  
+**Description:** Seamless backend routing across major LLM ecosystems.
+
+- **FR-15**: The backend shall support Google Gemini, OpenAI, and NVIDIA NIM via OpenAI-compatible interfaces.
+- **FR-16**: The system shall allow users or administrators to specify custom model overrides.
+- **FR-17**: The backend shall fall back to environment-configured default provider keys when user keys are omitted.
+
+### 4.6 Feature 6: Bring Your Own Key (BYOK) and Key Management
+**Priority:** High  
+**Description:** Secure client-side onboarding and server-side encryption of user API keys.
+
+- **FR-18**: The extension shall allow users to supply their personal provider API key and optional model.
+- **FR-19**: Upon submission, the extension and backend shall perform live verification of the key and model before saving.
+- **FR-20**: The extension shall provide a **Remove saved provider key** button to revoke and delete active credentials.
 
 ---
 
-*End of Document — Draft v1.0*
+## 5. Non-Functional Requirements
+
+### 5.1 Performance and Reliability
+- **NFR-01**: Average definition response time shall be under 2.5 seconds under standard broadband conditions.
+- **NFR-02**: The extension shall cache repeated word and context lookups locally per session to minimize redundant network traffic.
+- **NFR-03**: The backend shall gracefully return standardized HTTP error responses (400, 401, 422, 429, 502, 504) with explanatory user messages.
+
+### 5.2 Usability and Accessibility
+- **NFR-04**: Tooltips and modals shall automatically position themselves to avoid clipping at viewport edges.
+- **NFR-05**: Keyboard navigation and accessibility labels shall be present across the PDF reader and popup controls.
+
+### 5.3 Maintainability and Extensibility
+- **NFR-06**: Modular architecture separating UI logic, cryptographic helpers, backend endpoints, and LLM services.
+- **NFR-07**: Complete test coverage across unit, integration, and scenario testing suites in `backend/tests/`.
+
+---
+
+## 6. Security and Privacy Requirements
+
+### 6.1 Cryptographic Key Isolation
+- **SEC-01**: Provider API keys shall never be stored in plaintext within client `chrome.storage`.
+- **SEC-02**: Client credentials shall be encrypted via client-generated AES-GCM keys (`contextCoreEncryptionKey`).
+- **SEC-03**: The backend shall encrypt sensitive provider keys using server-side AES-GCM (`CREDENTIAL_ENCRYPTION_KEY`) and issue opaque, time-stamped credential tokens.
+- **SEC-04**: Subsequent lookup requests shall transmit only opaque credential tokens; raw provider keys shall never be sent back to the browser.
+
+### 6.2 Data Privacy
+- **SEC-05**: Context sent for definition generation shall be limited to the selected word and immediate neighboring sentences.
+- **SEC-06**: No document text or personal reading history shall be permanently stored on the backend server.

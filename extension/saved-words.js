@@ -57,7 +57,7 @@
 			const stored = await chrome.storage.local.get(STORAGE_KEY);
 			allWords = Array.isArray(stored[STORAGE_KEY]) ? stored[STORAGE_KEY] : [];
 		} catch (error) {
-			console.error("[ContentCore] Failed to load saved words:", error);
+			console.error("[Context Core] Failed to load saved words:", error);
 			allWords = [];
 		}
 		render();
@@ -225,7 +225,7 @@
 
 		const downloadLink = document.createElement("a");
 		downloadLink.href = url;
-		downloadLink.download = `contentcore-saved-words-${new Date().toISOString().slice(0, 10)}.csv`;
+		downloadLink.download = `contextcore-saved-words-${new Date().toISOString().slice(0, 10)}.csv`;
 		document.body.appendChild(downloadLink);
 		downloadLink.click();
 		document.body.removeChild(downloadLink);
