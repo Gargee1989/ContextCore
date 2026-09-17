@@ -5,44 +5,818 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<title>ContentCore PDF Reader</title>
 	<style>
-		* { box-sizing: border-box; }
-		body { margin: 0; color: #17211b; background: #333; font: 14px Arial, sans-serif; }
-		.toolbar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: #f8f7f1; position: sticky; top: 0; z-index: 2; }
-		.toolbar strong { color: #35644a; }
-		#file-input { max-width: 280px; color: #39483c; font: 13px Arial, sans-serif; }
-		#file-input::file-selector-button { margin-right: 10px; padding: 8px 12px; border: 1px solid #35644a; border-radius: 5px; background: #35644a; color: #fff; cursor: pointer; font: 600 12px Arial, sans-serif; }
-		#file-input::file-selector-button:hover { background: #2d5239; }
-		#status { color: #667066; }
-		#pdf-render { padding: 24px; }
-		.pdf-page { position: relative; width: fit-content; margin: 0 auto 24px; background: white; box-shadow: 0 4px 18px rgba(0, 0, 0, .35); }
-		.pdf-page canvas { display: block; }
-		.text-layer { position: absolute; inset: 0; overflow: hidden; line-height: 1; opacity: .25; }
-		.text-layer span { position: absolute; color: transparent; white-space: pre; transform-origin: 0 0; cursor: text; }
-		.text-layer ::selection { background: rgba(53, 100, 74, .35); }
-		[data-contentcore="lookup-card"] { position: fixed; z-index: 10; width: 300px; padding: 14px; color: #17211b; background: #f8f7f1; border: 1px solid #c6c9bb; border-radius: 8px; box-shadow: 0 12px 32px rgba(18, 28, 20, .35); font: 14px/1.45 Georgia, serif; }
-		[data-contentcore="lookup-card"] * { box-sizing: border-box; }
-		.cc-header, .cc-actions { display: flex; align-items: center; gap: 8px; }
-		.cc-actions { justify-content: flex-end; margin-top: 12px; }
-		.cc-header { color: #35644a; font: 700 12px/1.2 Arial, sans-serif; letter-spacing: .08em; text-transform: uppercase; }
-		.cc-header button { border: 0; background: transparent; color: #667066; cursor: pointer; font-size: 20px; line-height: 1; }
-		.cc-word { margin-top: 12px; font-size: 20px; font-weight: 700; overflow-wrap: anywhere; }
-		.cc-status { min-height: 20px; color: #35644a; font: 12px/1.4 Arial, sans-serif; }
-		.cc-error { color: #a53e32; }
-		.cc-actions button { padding: 8px 12px; border-radius: 5px; cursor: pointer; font: 600 12px Arial, sans-serif; }
-		.cc-primary { border: 1px solid #35644a; background: #35644a; color: white; }
-		.cc-secondary { border: 1px solid #b8beb2; background: transparent; color: #35644a; }
-		.cc-result { margin-top: 8px; color: #263228; font-size: 15px; max-height: 140px; overflow: auto; }
+		*, *::before, *::after {
+			box-sizing: border-box;
+		}
+
+		:root {
+			--toolbar-bg: #f4f5f7;
+			--toolbar-border: #e2e4e8;
+			--btn-hover: #e8ebef;
+			--btn-active: #dcdfe4;
+			--text-primary: #1f2937;
+			--text-secondary: #4b5563;
+			--text-muted: #6b7280;
+			--border-color: #d1d5db;
+			--accent-blue: #2563eb;
+			--accent-green: #10b981;
+			--highlight-yellow: rgba(255, 235, 59, 0.5);
+			--find-highlight: #fef08a;
+			--find-active: #f97316;
+			--page-bg: #eaedf1;
+		}
+
+		html, body {
+			height: 100vh;
+			max-height: 100vh;
+			overflow: hidden;
+		}
+
+		body {
+			margin: 0;
+			padding: 0;
+			color: var(--text-primary);
+			background-color: var(--page-bg);
+			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+			font-size: 14px;
+			line-height: 1.5;
+			display: flex;
+			flex-direction: column;
+		}
+
+		/* TOP PDF TOOLBAR */
+		.top-toolbar {
+			position: sticky;
+			top: 0;
+			left: 0;
+			right: 0;
+			height: 48px;
+			flex-shrink: 0;
+			background: var(--toolbar-bg);
+			border-bottom: 1px solid var(--toolbar-border);
+			box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			padding: 0 16px;
+			z-index: 50;
+			user-select: none;
+		}
+
+		.toolbar-left {
+			display: flex;
+			align-items: center;
+			gap: 12px;
+			min-width: 220px;
+		}
+
+		.doc-icon-badge {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			width: 28px;
+			height: 28px;
+			border-radius: 6px;
+			background: #e0e7ff;
+			color: #3730a3;
+			font-weight: 700;
+			font-size: 11px;
+			letter-spacing: 0.05em;
+		}
+
+		.doc-title {
+			font-size: 13px;
+			font-weight: 600;
+			color: var(--text-secondary);
+			max-width: 200px;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
+		.btn-open-file {
+			display: inline-flex;
+			align-items: center;
+			gap: 6px;
+			padding: 5px 10px;
+			background: #ffffff;
+			border: 1px solid var(--border-color);
+			border-radius: 6px;
+			color: var(--text-secondary);
+			font-size: 12px;
+			font-weight: 500;
+			cursor: pointer;
+			transition: all 0.15s ease;
+		}
+
+		.btn-open-file:hover {
+			background: var(--btn-hover);
+			color: var(--text-primary);
+			border-color: #9ca3af;
+		}
+
+		.toolbar-center {
+			display: flex;
+			align-items: center;
+			gap: 12px;
+			flex-wrap: nowrap;
+		}
+
+		.tb-group {
+			display: flex;
+			align-items: center;
+			gap: 4px;
+		}
+
+		.tb-divider {
+			width: 1px;
+			height: 20px;
+			background-color: var(--toolbar-border);
+			margin: 0 4px;
+		}
+
+		/* Generic Toolbar Button */
+		.tb-btn {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			height: 28px;
+			padding: 0 8px;
+			border: 1px solid transparent;
+			background: transparent;
+			border-radius: 4px;
+			color: var(--text-secondary);
+			cursor: pointer;
+			font-family: inherit;
+			font-size: 13px;
+			font-weight: 500;
+			transition: background 0.15s, color 0.15s, border-color 0.15s;
+		}
+
+		.tb-btn:hover:not(:disabled) {
+			background: var(--btn-hover);
+			color: var(--text-primary);
+		}
+
+		.tb-btn:active:not(:disabled) {
+			background: var(--btn-active);
+		}
+
+		.tb-btn:disabled {
+			opacity: 0.35;
+			cursor: not-allowed;
+		}
+
+		.tb-btn.icon-only {
+			width: 28px;
+			padding: 0;
+		}
+
+		/* a) Page Navigation */
+		.page-nav-group {
+			display: flex;
+			align-items: center;
+			gap: 4px;
+		}
+
+		.tb-label {
+			font-size: 13px;
+			color: var(--text-muted);
+			font-weight: 500;
+			margin: 0 2px;
+		}
+
+		.page-input {
+			width: 42px;
+			height: 26px;
+			padding: 0 4px;
+			border: 1px solid var(--border-color);
+			border-radius: 4px;
+			background: #ffffff;
+			color: var(--text-primary);
+			font-size: 13px;
+			font-weight: 500;
+			text-align: center;
+			font-family: inherit;
+			-moz-appearance: textfield;
+			appearance: textfield;
+		}
+
+		.page-input::-webkit-outer-spin-button,
+		.page-input::-webkit-inner-spin-button {
+			-webkit-appearance: none;
+			margin: 0;
+		}
+
+		.page-input:focus {
+			outline: 2px solid var(--accent-blue);
+			outline-offset: -1px;
+			border-color: transparent;
+		}
+
+		.page-count-text {
+			font-size: 13px;
+			color: var(--text-muted);
+			font-weight: 500;
+			margin-right: 4px;
+			min-width: 24px;
+		}
+
+		/* b) In-PDF Search / Find Bar */
+		.find-group {
+			display: flex;
+			align-items: center;
+			gap: 6px;
+		}
+
+		.find-box-wrapper {
+			display: flex;
+			align-items: center;
+			height: 28px;
+			background: #ffffff;
+			border: 1px solid var(--border-color);
+			border-radius: 6px;
+			padding: 0 4px 0 8px;
+			gap: 4px;
+			transition: border-color 0.15s, box-shadow 0.15s;
+		}
+
+		.find-box-wrapper:focus-within {
+			border-color: var(--accent-blue);
+			box-shadow: 0 0 0 1px var(--accent-blue);
+		}
+
+		.find-input {
+			border: none;
+			outline: none;
+			background: transparent;
+			font-size: 13px;
+			color: var(--text-primary);
+			width: 100px;
+			font-family: inherit;
+		}
+
+		.find-input::placeholder {
+			color: #9ca3af;
+		}
+
+		.find-count-badge {
+			font-size: 11px;
+			color: var(--text-muted);
+			font-weight: 600;
+			padding: 0 4px;
+			white-space: nowrap;
+		}
+
+		.find-action-btn {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			width: 22px;
+			height: 22px;
+			border: none;
+			background: transparent;
+			border-radius: 4px;
+			color: var(--text-muted);
+			cursor: pointer;
+			padding: 0;
+			transition: background 0.15s, color 0.15s;
+		}
+
+		.find-action-btn:hover:not(:disabled) {
+			background: var(--btn-hover);
+			color: var(--text-primary);
+		}
+
+		.find-action-btn:disabled {
+			opacity: 0.3;
+			cursor: not-allowed;
+		}
+
+		/* c) Zoom Controls */
+		.zoom-group {
+			display: flex;
+			align-items: center;
+			gap: 4px;
+		}
+
+		.zoom-badge {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			min-width: 48px;
+			font-size: 13px;
+			font-weight: 600;
+			color: var(--text-secondary);
+			padding: 0 4px;
+		}
+
+		/* d) Layout / Fit button */
+		.fit-btn {
+			gap: 6px;
+		}
+
+		/* Right Toolbar Section */
+		.toolbar-right {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			min-width: 140px;
+			justify-content: flex-end;
+		}
+
+		.saved-words-link {
+			display: inline-flex;
+			align-items: center;
+			gap: 6px;
+			text-decoration: none;
+			color: var(--text-secondary);
+			font-size: 12.5px;
+			font-weight: 500;
+			padding: 5px 10px;
+			background: #ffffff;
+			border: 1px solid var(--border-color);
+			border-radius: 6px;
+			transition: all 0.15s ease;
+		}
+
+		.saved-words-link:hover {
+			background: var(--btn-hover);
+			color: var(--text-primary);
+		}
+
+		/* MAIN VIEWER CONTAINER */
+		#pdf-render {
+			flex: 1;
+			height: calc(100vh - 48px);
+			padding: 24px;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			overflow-y: auto;
+			overflow-x: auto;
+			position: relative;
+			overscroll-behavior-y: none;
+		}
+
+		/* PDF PAGE */
+		.pdf-page {
+			position: relative;
+			margin: 0 auto 24px;
+			background: #ffffff;
+			box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08);
+			border-radius: 2px;
+			user-select: text;
+			min-height: 200px;
+		}
+
+		.pdf-page canvas {
+			display: block;
+		}
+
+		/* Text Layer */
+		.text-layer {
+			position: absolute;
+			inset: 0;
+			overflow: hidden;
+			line-height: 1;
+		}
+
+		.text-layer span {
+			position: absolute;
+			color: transparent;
+			white-space: pre;
+			transform-origin: 0 0;
+			cursor: text;
+			user-select: text;
+			-webkit-user-select: text;
+		}
+
+		.text-layer ::selection {
+			background: rgba(37, 99, 235, 0.3);
+		}
+
+		/* Highlighter Mark Styling */
+		mark.cc-pdf-highlight {
+			background-color: var(--highlight-yellow) !important;
+			color: transparent !important;
+			border-radius: 2px;
+			cursor: pointer;
+			box-decoration-break: clone;
+			-webkit-box-decoration-break: clone;
+			padding: 1px 0;
+		}
+
+		/* Search Match Highlights */
+		mark.cc-find-highlight {
+			background-color: var(--find-highlight) !important;
+			color: #111827 !important;
+			border-radius: 2px;
+			padding: 0 1px;
+			font-weight: 600;
+		}
+
+		mark.cc-find-highlight.cc-find-active {
+			background-color: var(--find-active) !important;
+			color: #ffffff !important;
+			outline: 2px solid #ea580c;
+		}
+
+		/* EMPTY STATE / DROPZONE */
+		.empty-dropzone {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			margin: 60px auto;
+			padding: 48px;
+			width: 100%;
+			max-width: 480px;
+			background: #ffffff;
+			border: 2px dashed #cbd5e1;
+			border-radius: 12px;
+			text-align: center;
+			box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+			transition: border-color 0.2s, background-color 0.2s;
+		}
+
+		.empty-dropzone.drag-over {
+			border-color: var(--accent-blue);
+			background-color: #eff6ff;
+		}
+
+		.empty-icon {
+			width: 56px;
+			height: 56px;
+			color: #94a3b8;
+			margin-bottom: 16px;
+		}
+
+		.empty-title {
+			font-size: 18px;
+			font-weight: 600;
+			color: var(--text-primary);
+			margin: 0 0 8px;
+		}
+
+		.empty-subtitle {
+			font-size: 14px;
+			color: var(--text-muted);
+			margin: 0 0 20px;
+		}
+
+		.btn-primary-upload {
+			display: inline-flex;
+			align-items: center;
+			gap: 8px;
+			padding: 10px 20px;
+			background: var(--accent-blue);
+			color: #ffffff;
+			border: none;
+			border-radius: 6px;
+			font-size: 14px;
+			font-weight: 600;
+			cursor: pointer;
+			transition: background 0.15s;
+		}
+
+		.btn-primary-upload:hover {
+			background: #1d4ed8;
+		}
+
+		/* COMPACT FLOATING SELECTION TOOLBAR */
+		.cc-floating-pill-container {
+			position: fixed;
+			z-index: 1000;
+			display: flex;
+			flex-direction: column;
+			align-items: flex-start;
+			filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.12));
+			transition: opacity 0.12s ease;
+		}
+
+		.cc-floating-pill {
+			display: flex;
+			align-items: center;
+			background: #ffffff;
+			border: 1px solid #e0e0e0;
+			border-radius: 8px;
+			box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 1px 4px rgba(0, 0, 0, 0.06);
+			padding: 4px 6px;
+			gap: 4px;
+			user-select: none;
+			font-family: inherit;
+		}
+
+		/* 1. "Explain this" button (Plain text only, clean dark font, NO icon) */
+		.cc-explain-btn {
+			background: transparent;
+			border: none;
+			color: #1f2937;
+			font-size: 13px;
+			font-weight: 500;
+			padding: 5px 10px;
+			border-radius: 5px;
+			cursor: pointer;
+			white-space: nowrap;
+			font-family: inherit;
+			transition: background 0.15s, color 0.15s;
+		}
+
+		.cc-explain-btn:hover {
+			background: #f3f4f6;
+			color: #111827;
+		}
+
+		/* 2. Thin vertical separator line (|) */
+		.cc-pill-separator {
+			width: 1px;
+			height: 18px;
+			background-color: #e5e7eb;
+			margin: 0 2px;
+		}
+
+		/* 3 & 4. Icon Buttons (Highlighter & Save) */
+		.cc-pill-icon-btn {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			width: 28px;
+			height: 28px;
+			border: none;
+			background: transparent;
+			border-radius: 5px;
+			color: #4b5563;
+			cursor: pointer;
+			padding: 0;
+			transition: background 0.15s, color 0.15s;
+		}
+
+		.cc-pill-icon-btn:hover {
+			background: #f3f4f6;
+			color: #111827;
+		}
+
+		.cc-pill-icon-btn.active {
+			background: #fef08a;
+			color: #854d0e;
+		}
+
+		.cc-pill-icon-btn.saved-success {
+			color: #10b981;
+			background: #ecfdf5;
+		}
+
+		/* COMPACT DROPDOWN CARD (Under Floating Pill) */
+		.cc-dropdown-card {
+			margin-top: 8px;
+			width: 320px;
+			background: #ffffff;
+			border: 1px solid #e5e7eb;
+			border-radius: 8px;
+			box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.06);
+			padding: 14px;
+			font-family: inherit;
+			color: var(--text-primary);
+			animation: ccCardFadeIn 0.15s ease-out;
+		}
+
+		@keyframes ccCardFadeIn {
+			from { opacity: 0; transform: translateY(-4px); }
+			to { opacity: 1; transform: translateY(0); }
+		}
+
+		.cc-card-header {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			margin-bottom: 8px;
+			padding-bottom: 6px;
+			border-bottom: 1px solid #f3f4f6;
+		}
+
+		.cc-card-word {
+			font-size: 15px;
+			font-weight: 700;
+			color: #111827;
+			overflow-wrap: anywhere;
+		}
+
+		.cc-card-close {
+			border: none;
+			background: transparent;
+			color: #9ca3af;
+			cursor: pointer;
+			font-size: 18px;
+			line-height: 1;
+			padding: 2px 6px;
+			border-radius: 4px;
+		}
+
+		.cc-card-close:hover {
+			background: #f3f4f6;
+			color: #4b5563;
+		}
+
+		.cc-card-body {
+			font-size: 13.5px;
+			line-height: 1.5;
+			color: #374151;
+		}
+
+		.cc-card-loading {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			color: var(--text-muted);
+			font-size: 13px;
+			padding: 8px 0;
+		}
+
+		.cc-card-spinner {
+			width: 16px;
+			height: 16px;
+			border: 2px solid #e5e7eb;
+			border-top-color: var(--accent-blue);
+			border-radius: 50%;
+			animation: ccSpin 0.7s linear infinite;
+		}
+
+		@keyframes ccSpin {
+			to { transform: rotate(360deg); }
+		}
+
+		.cc-card-error {
+			color: #dc2626;
+			font-size: 13px;
+			padding: 4px 0;
+		}
+
+		.cc-card-definition {
+			margin-top: 4px;
+			max-height: 160px;
+			overflow-y: auto;
+			padding-right: 2px;
+		}
+
+		.cc-card-meta {
+			display: flex;
+			flex-direction: column;
+			gap: 6px;
+			margin-top: 10px;
+			padding-top: 8px;
+			border-top: 1px dashed #e5e7eb;
+			font-size: 12px;
+		}
+
+		.cc-card-meta-row {
+			display: flex;
+			align-items: flex-start;
+			gap: 6px;
+		}
+
+		.cc-meta-badge {
+			font-weight: 600;
+			color: #4b5563;
+			min-width: 60px;
+		}
+
+		.cc-meta-value {
+			color: #1f2937;
+			flex: 1;
+		}
+
+		/* TOAST NOTIFICATION */
+		#cc-toast {
+			position: fixed;
+			bottom: 24px;
+			left: 50%;
+			transform: translateX(-50%) translateY(20px);
+			background: #1f2937;
+			color: #ffffff;
+			padding: 8px 16px;
+			border-radius: 6px;
+			font-size: 13px;
+			font-weight: 500;
+			box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+			z-index: 2000;
+			opacity: 0;
+			pointer-events: none;
+			transition: transform 0.2s ease, opacity 0.2s ease;
+		}
+
+		#cc-toast.show {
+			opacity: 1;
+			transform: translateX(-50%) translateY(0);
+		}
 	</style>
 </head>
 <body>
-	<div class="toolbar">
-		<strong>ContentCore PDF Reader</strong>
-		<input id="file-input" type="file" accept="application/pdf">
-		<span id="status">Choose a PDF to begin.</span>
-	</div>
-	<main id="pdf-render"></main>
+	<!-- TOP PDF TOOLBAR -->
+	<header class="top-toolbar">
+		<!-- Document Title on Top-Left -->
+		<div class="toolbar-left">
+			<div class="doc-icon-badge">PDF</div>
+			<span id="doc-title" class="doc-title" title="No document loaded">No document loaded</span>
+			<label class="btn-open-file" for="file-input" title="Open PDF">
+				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
+				<span>Open</span>
+			</label>
+			<input id="file-input" type="file" accept="application/pdf" style="display: none;">
+		</div>
+
+		<!-- Centered Controls -->
+		<div class="toolbar-center">
+			<!-- a) Page Navigation -->
+			<div class="tb-group page-nav-group">
+				<button type="button" id="page-prev" class="tb-btn icon-only" title="Previous page" aria-label="Previous page" disabled>
+					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+				</button>
+				<span class="tb-label">page</span>
+				<input type="number" id="page-num-input" class="page-input" value="1" min="1" max="1" aria-label="Current page" disabled>
+				<span id="page-count-display" class="page-count-text">/ 0</span>
+				<button type="button" id="page-next" class="tb-btn icon-only" title="Next page" aria-label="Next page" disabled>
+					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+				</button>
+			</div>
+
+			<div class="tb-divider"></div>
+
+			<!-- b) In-PDF Search / Find Bar -->
+			<div class="tb-group find-group">
+				<div class="find-box-wrapper">
+					<span class="tb-label" style="margin: 0 2px 0 0;">Find</span>
+					<input type="text" id="find-input" class="find-input" placeholder="" aria-label="Find in document" disabled>
+					<span id="find-count" class="find-count-badge" style="display: none;">0/0</span>
+					<button type="button" id="find-btn" class="find-action-btn" title="Search" disabled>
+						<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+					</button>
+					<button type="button" id="find-prev" class="find-action-btn" title="Previous match" disabled>
+						<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+					</button>
+					<button type="button" id="find-next" class="find-action-btn" title="Next match" disabled>
+						<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+					</button>
+				</div>
+			</div>
+
+			<div class="tb-divider"></div>
+
+			<!-- c) Zoom Controls -->
+			<div class="tb-group zoom-group">
+				<button type="button" id="zoom-out" class="tb-btn icon-only" title="Zoom out" aria-label="Zoom out" disabled>
+					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+				</button>
+				<span id="zoom-badge" class="zoom-badge">100%</span>
+				<button type="button" id="zoom-in" class="tb-btn icon-only" title="Zoom in" aria-label="Zoom in" disabled>
+					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+				</button>
+			</div>
+
+			<div class="tb-divider"></div>
+
+			<!-- d) Layout / Fit toggle button -->
+			<div class="tb-group">
+				<button type="button" id="fit-toggle-btn" class="tb-btn fit-btn" title="Toggle Fit Width / 100%" disabled>
+					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+					<span>Fit</span>
+				</button>
+			</div>
+		</div>
+
+		<!-- Right Side: Saved Words Link -->
+		<div class="toolbar-right">
+			<a href="saved-words.html" class="saved-words-link" title="Open Saved Words Notebook">
+				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+				<span>Saved Words</span>
+			</a>
+		</div>
+	</header>
+
+	<!-- MAIN PDF RENDER TARGET -->
+	<main id="pdf-render">
+		<div id="empty-state" class="empty-dropzone">
+			<svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+				<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+				<polyline points="14 2 14 8 20 8"/>
+				<line x1="12" y1="18" x2="12" y2="12"/>
+				<line x1="9" y1="15" x2="15" y2="15"/>
+			</svg>
+			<h2 class="empty-title">Open a PDF Document</h2>
+			<p class="empty-subtitle">Select a PDF file or drag and drop it here to start reading with AI context.</p>
+			<label class="btn-primary-upload" for="file-input">
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+				<span>Choose PDF File</span>
+			</label>
+		</div>
+	</main>
+
+	<!-- Toast Notification Element -->
+	<div id="cc-toast">Saved for later</div>
+
 	<script type="module" src="lib/pdfjs/pdf.min.js"></script>
 	<script src="crypto.js"></script>
 	<script type="module" src="pdf-reader.js"></script>
 </body>
 </html>
+

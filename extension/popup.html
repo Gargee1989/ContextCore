@@ -1,61 +1,554 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>ContentCore Settings</title>
 	<style>
-		* { box-sizing: border-box; }
-		body { font: 14px Arial, sans-serif; width: 360px; margin: 0; padding: 16px; background: #f8f7f1; color: #17211b; }
-		h1 { font: 18px/1.2 Arial, sans-serif; color: #35644a; margin: 0 0 16px; }
-		label { display: block; margin-top: 12px; font-weight: 600; color: #35644a; }
-		label span { font-weight: 400; font-size: 12px; color: #666; }
-		input, select { width: 100%; padding: 8px; margin-top: 4px; border: 1px solid #c6c9bb; border-radius: 4px; font: 13px Arial, sans-serif; background: white; }
-		button { width: 100%; padding: 10px; margin-top: 16px; background: #35644a; color: white; border: none; border-radius: 4px; cursor: pointer; font: 600 13px Arial, sans-serif; }
-		button:hover { background: #2d5239; }
-		button:disabled { opacity: 0.5; cursor: not-allowed; }
-		.secondary-button { background: transparent; color: #a53e32; border: 1px solid #c6c9bb; margin-top: 8px; }
-		.secondary-button:hover:not(:disabled) { background: #fdf2f2; border-color: #a53e32; }
-		.secondary-button:disabled { background: transparent; border-color: #e0e0d8; color: #999; }
-		#status { margin-top: 12px; padding: 8px; border-radius: 4px; font-size: 12px; display: none; }
-		#status.success { background: #d4edda; color: #155724; display: block; }
-		#status.error { background: #f8d7da; color: #721c24; display: block; }
-		.info { margin-top: 12px; padding: 8px; background: #e7f3ff; color: #004085; border-radius: 4px; font-size: 12px; line-height: 1.4; }
-		.reader-link { display: block; margin-top: 12px; color: #35644a; font-size: 12px; text-align: center; }
-		.section-label { margin-top: 16px; font-size: 11px; font-weight: 600; color: #999; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #e0e0d8; padding-bottom: 4px; }
+		:root {
+			--bg: #f8f9fa;
+			--surface: #ffffff;
+			--surface-hover: #f9fafb;
+			--text-main: #111827;
+			--text-secondary: #4b5563;
+			--text-muted: #6b7280;
+			--primary: #35644a;
+			--primary-hover: #264a36;
+			--primary-light: #eef5f1;
+			--primary-ring: rgba(53, 100, 74, 0.18);
+			--border: #e5e7eb;
+			--border-focus: #35644a;
+			--danger: #dc2626;
+			--danger-hover: #b91c1c;
+			--danger-bg: #fef2f2;
+			--danger-border: #fecaca;
+			--success-bg: #ecfdf5;
+			--success-text: #065f46;
+			--success-border: #a7f3d0;
+			--error-bg: #fef2f2;
+			--error-text: #991b1b;
+			--error-border: #fecaca;
+			--radius-lg: 12px;
+			--radius-md: 8px;
+			--radius-sm: 6px;
+			--shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+			--shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.06), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
+			--shadow-hover: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.04);
+			--transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+		}
+
+		* {
+			box-sizing: border-box;
+			margin: 0;
+			padding: 0;
+		}
+
+		body {
+			width: 380px;
+			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+			font-size: 13px;
+			line-height: 1.45;
+			color: var(--text-main);
+			background-color: var(--bg);
+			padding: 16px;
+			-webkit-font-smoothing: antialiased;
+		}
+
+		/* Header */
+		.header {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			margin-bottom: 14px;
+			padding-bottom: 12px;
+			border-bottom: 1px solid var(--border);
+		}
+
+		.brand-group {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+		}
+
+		.brand-badge {
+			width: 32px;
+			height: 32px;
+			background: linear-gradient(135deg, #35644a 0%, #264a36 100%);
+			color: #ffffff;
+			border-radius: var(--radius-md);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			font-family: Georgia, serif;
+			font-weight: 700;
+			font-size: 15px;
+			box-shadow: var(--shadow-sm);
+		}
+
+		.brand-text h1 {
+			font-size: 16px;
+			font-weight: 700;
+			color: var(--text-main);
+			line-height: 1.15;
+		}
+
+		.brand-text p {
+			font-size: 11px;
+			color: var(--text-muted);
+			margin-top: 1px;
+		}
+
+		.status-badge {
+			display: inline-flex;
+			align-items: center;
+			gap: 5px;
+			background: var(--success-bg);
+			border: 1px solid var(--success-border);
+			color: var(--success-text);
+			font-size: 11px;
+			font-weight: 600;
+			padding: 3px 8px;
+			border-radius: 9999px;
+		}
+
+		.status-dot {
+			width: 6px;
+			height: 6px;
+			border-radius: 50%;
+			background-color: #10b981;
+			box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+		}
+
+		/* Card Container */
+		.card {
+			background: var(--surface);
+			border: 1px solid var(--border);
+			border-radius: var(--radius-lg);
+			padding: 14px;
+			box-shadow: var(--shadow-card);
+			margin-bottom: 12px;
+		}
+
+		.card-header {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			margin-bottom: 12px;
+			padding-bottom: 8px;
+			border-bottom: 1px solid #f3f4f6;
+		}
+
+		.card-header-icon {
+			color: var(--primary);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+		}
+
+		.card-title {
+			font-size: 12px;
+			font-weight: 700;
+			text-transform: uppercase;
+			letter-spacing: 0.5px;
+			color: var(--text-secondary);
+		}
+
+		/* Form Styling */
+		.form-group {
+			margin-bottom: 12px;
+		}
+
+		.form-group:last-of-type {
+			margin-bottom: 14px;
+		}
+
+		label {
+			display: block;
+			font-size: 12px;
+			font-weight: 600;
+			color: var(--text-main);
+			margin-bottom: 4px;
+		}
+
+		.label-helper {
+			font-weight: 400;
+			font-size: 11px;
+			color: var(--text-muted);
+			margin-left: 2px;
+		}
+
+		.input-wrapper {
+			position: relative;
+		}
+
+		input[type="text"],
+		input[type="password"],
+		select {
+			width: 100%;
+			height: 36px;
+			padding: 0 10px;
+			background: var(--surface);
+			border: 1px solid var(--border);
+			border-radius: var(--radius-sm);
+			font-size: 12.5px;
+			color: var(--text-main);
+			transition: var(--transition);
+			outline: none;
+		}
+
+		select {
+			appearance: none;
+			padding-right: 32px;
+			cursor: pointer;
+			background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+			background-repeat: no-repeat;
+			background-position: right 10px center;
+			background-size: 14px 14px;
+		}
+
+		input:focus,
+		select:focus {
+			border-color: var(--border-focus);
+			box-shadow: 0 0 0 3px var(--primary-ring);
+		}
+
+		input:disabled,
+		select:disabled {
+			background-color: #f9fafb;
+			color: #9ca3af;
+			cursor: not-allowed;
+			border-color: #e5e7eb;
+		}
+
+		.field-hint {
+			font-size: 10.5px;
+			color: var(--text-muted);
+			margin-top: 4px;
+			display: block;
+		}
+
+		/* Buttons */
+		.btn-primary {
+			width: 100%;
+			height: 38px;
+			background-color: var(--primary);
+			color: #ffffff;
+			border: none;
+			border-radius: var(--radius-sm);
+			font-size: 13px;
+			font-weight: 600;
+			cursor: pointer;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 6px;
+			box-shadow: var(--shadow-sm);
+			transition: var(--transition);
+		}
+
+		.btn-primary:hover:not(:disabled) {
+			background-color: var(--primary-hover);
+			box-shadow: var(--shadow-hover);
+		}
+
+		.btn-primary:disabled {
+			opacity: 0.6;
+			cursor: not-allowed;
+		}
+
+		.btn-danger-outline {
+			width: 100%;
+			height: 34px;
+			background-color: transparent;
+			color: var(--danger);
+			border: 1px solid var(--danger-border);
+			border-radius: var(--radius-sm);
+			font-size: 12px;
+			font-weight: 600;
+			cursor: pointer;
+			margin-bottom: 8px;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 6px;
+			transition: var(--transition);
+		}
+
+		.btn-danger-outline:hover:not(:disabled) {
+			background-color: var(--danger-bg);
+			border-color: var(--danger);
+			color: var(--danger-hover);
+		}
+
+		.btn-danger-outline:disabled {
+			opacity: 0.4;
+			cursor: not-allowed;
+			border-color: var(--border);
+			color: var(--text-muted);
+		}
+
+		/* Status Messages */
+		#status {
+			margin-top: 10px;
+			padding: 8px 12px;
+			border-radius: var(--radius-sm);
+			font-size: 11.5px;
+			font-weight: 500;
+			line-height: 1.4;
+			display: none;
+			animation: fadeIn 0.2s ease-in-out;
+		}
+
+		#status.success {
+			background-color: var(--success-bg);
+			color: var(--success-text);
+			border: 1px solid var(--success-border);
+			display: block;
+		}
+
+		#status.error {
+			background-color: var(--error-bg);
+			color: var(--error-text);
+			border: 1px solid var(--error-border);
+			display: block;
+		}
+
+		/* Action Tiles / Navigation */
+		.nav-grid {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 8px;
+			margin-bottom: 12px;
+		}
+
+		.action-tile {
+			display: flex;
+			flex-direction: column;
+			background: var(--surface);
+			border: 1px solid var(--border);
+			border-radius: var(--radius-lg);
+			padding: 12px;
+			text-decoration: none;
+			color: inherit;
+			box-shadow: var(--shadow-card);
+			transition: var(--transition);
+			position: relative;
+		}
+
+		.action-tile:hover {
+			border-color: var(--primary);
+			background-color: var(--surface-hover);
+			box-shadow: var(--shadow-hover);
+			transform: translateY(-1px);
+		}
+
+		.tile-top {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			margin-bottom: 6px;
+		}
+
+		.tile-icon {
+			width: 28px;
+			height: 28px;
+			border-radius: var(--radius-sm);
+			background-color: var(--primary-light);
+			color: var(--primary);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+		}
+
+		.tile-arrow {
+			color: var(--text-muted);
+			transition: var(--transition);
+		}
+
+		.action-tile:hover .tile-arrow {
+			color: var(--primary);
+			transform: translateX(2px);
+		}
+
+		.tile-title {
+			font-size: 12.5px;
+			font-weight: 700;
+			color: var(--text-main);
+			margin-bottom: 2px;
+		}
+
+		.tile-desc {
+			font-size: 10.5px;
+			color: var(--text-muted);
+			line-height: 1.3;
+		}
+
+		/* Feature Info Box */
+		.info-tip {
+			display: flex;
+			align-items: flex-start;
+			gap: 8px;
+			background: #f0fdf4;
+			border: 1px solid #dcfce7;
+			border-radius: var(--radius-md);
+			padding: 10px 12px;
+			color: #166534;
+			font-size: 11.5px;
+			line-height: 1.4;
+		}
+
+		.info-tip-icon {
+			flex-shrink: 0;
+			margin-top: 1px;
+			color: #15803d;
+		}
+
+		/* Spinner */
+		.btn-spinner {
+			display: inline-block;
+			width: 14px;
+			height: 14px;
+			border: 2px solid rgba(255, 255, 255, 0.3);
+			border-top-color: #ffffff;
+			border-radius: 50%;
+			animation: spin 0.7s linear infinite;
+			margin-right: 8px;
+			vertical-align: middle;
+		}
+
+		@keyframes spin {
+			to { transform: rotate(360deg); }
+		}
+
+		@keyframes fadeIn {
+			from { opacity: 0; transform: translateY(-2px); }
+			to { opacity: 1; transform: translateY(0); }
+		}
 	</style>
 </head>
 <body>
-	<h1>ContentCore Settings</h1>
-	<form id="settings-form">
-		<div class="section-label">Bring Your Own Provider Key</div>
-		<label for="provider">Provider</label>
-		<select id="provider">
-			<option value="">Select a provider</option>
-			<option value="Google Gemini">Google Gemini</option>
-			<option value="OpenAI">OpenAI</option>
-			<option value="NVIDIA NIM">NVIDIA NIM</option>
-		</select>
-		<label for="llm-api-key">Provider API key <span>(sent once to register with the backend)</span></label>
-		<input id="llm-api-key" type="password" placeholder="Enter or replace your provider key" autocomplete="off">
-		<label for="llm-model">Model <span>(optional)</span></label>
-		<input id="llm-model" type="text" placeholder="Uses the provider default if empty" autocomplete="off">
-		<button type="button" id="clear-credential" class="secondary-button">Remove saved provider key</button>
+	<!-- Header -->
+	<header class="header">
+		<div class="brand-group">
+			<div class="brand-badge" aria-hidden="true">CC</div>
+			<div class="brand-text">
+				<h1>ContentCore</h1>
+				<p>AI-powered reading assistant</p>
+			</div>
+		</div>
+		<div class="status-badge">
+			<span class="status-dot"></span>
+			<span>Ready</span>
+		</div>
+	</header>
 
-		<button type="submit">Save settings</button>
-		<div id="status" role="status" aria-live="polite"></div>
-	</form>
-	<a class="reader-link" href="saved-words.html" target="_blank">View Saved Words</a>
-	<a class="reader-link" href="pdf-viewer.html" target="_blank">Open ContentCore PDF Reader</a>
+	<!-- LLM Provider Setup Card -->
+	<div class="card">
+		<div class="card-header">
+			<div class="card-header-icon">
+				<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+					<path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
+				</svg>
+			</div>
+			<span class="card-title">LLM Provider Setup</span>
+		</div>
 
-	<div class="info">
-		<strong>How it works:</strong>
-		<ul style="margin: 8px 0; padding-left: 18px;">
-			<li>Highlight any word on a webpage</li>
-			<li>Use the PDF Reader link for PDF files</li>
-			<li>Click "Explain" to get AI-powered definitions</li>
-			<li>Saved words available in your reading history</li>
-		</ul>
+		<form id="settings-form">
+			<div class="form-group">
+				<label for="provider">Provider</label>
+				<select id="provider">
+					<option value="">Select a provider</option>
+					<option value="Google Gemini">Google Gemini</option>
+					<option value="OpenAI">OpenAI</option>
+					<option value="NVIDIA NIM">NVIDIA NIM</option>
+				</select>
+			</div>
+
+			<div class="form-group">
+				<label for="llm-api-key">Provider API key <span class="label-helper">(Encrypted)</span></label>
+				<input id="llm-api-key" type="password" placeholder="Enter or replace your provider key" autocomplete="off">
+				<span class="field-hint">Sent once to backend for encrypted storage.</span>
+			</div>
+
+			<div class="form-group">
+				<label for="llm-model">Model <span class="label-helper">(Optional)</span></label>
+				<input id="llm-model" type="text" placeholder="e.g. gemini-2.5-flash" autocomplete="off">
+				<span class="field-hint">Optional (defaults to recommended model).</span>
+			</div>
+
+			<button type="button" id="clear-credential" class="btn-danger-outline">
+				<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+					<polyline points="3 6 5 6 21 6"></polyline>
+					<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+				</svg>
+				<span>Remove saved provider key</span>
+			</button>
+
+			<button type="submit" class="btn-primary">
+				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+					<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+					<polyline points="17 21 17 13 7 13 7 21"></polyline>
+					<polyline points="7 3 7 8 15 8"></polyline>
+				</svg>
+				<span>Save settings</span>
+			</button>
+
+			<div id="status" role="status" aria-live="polite"></div>
+		</form>
+	</div>
+
+	<!-- Quick Navigation Cards -->
+	<div class="nav-grid">
+		<a class="action-tile" href="pdf-viewer.html" target="_blank">
+			<div class="tile-top">
+				<div class="tile-icon">
+					<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+						<polyline points="14 2 14 8 20 8"></polyline>
+						<line x1="16" y1="13" x2="8" y2="13"></line>
+						<line x1="16" y1="17" x2="8" y2="17"></line>
+						<polyline points="10 9 9 9 8 9"></polyline>
+					</svg>
+				</div>
+				<svg class="tile-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+					<line x1="5" y1="12" x2="19" y2="12"></line>
+					<polyline points="12 5 19 12 12 19"></polyline>
+				</svg>
+			</div>
+			<div class="tile-title">PDF Reader</div>
+			<div class="tile-desc">Read & annotate local PDF documents</div>
+		</a>
+
+		<a class="action-tile" href="saved-words.html" target="_blank">
+			<div class="tile-top">
+				<div class="tile-icon">
+					<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+						<path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+					</svg>
+				</div>
+				<svg class="tile-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+					<line x1="5" y1="12" x2="19" y2="12"></line>
+					<polyline points="12 5 19 12 12 19"></polyline>
+				</svg>
+			</div>
+			<div class="tile-title">Vocabulary</div>
+			<div class="tile-desc">View saved words & export CSV</div>
+		</a>
+	</div>
+
+	<!-- Tips Box -->
+	<div class="info-tip">
+		<div class="info-tip-icon">
+			<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+				<circle cx="12" cy="12" r="10"></circle>
+				<line x1="12" y1="16" x2="12" y2="12"></line>
+				<line x1="12" y1="8" x2="12.01" y2="8"></line>
+			</svg>
+		</div>
+		<div>
+			<strong>Tip:</strong> Highlight any text or word on web pages or PDF files and click <em>"Explain this"</em> for AI explanations.
+		</div>
 	</div>
 
 	<script src="crypto.js"></script>
