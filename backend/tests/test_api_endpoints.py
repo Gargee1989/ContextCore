@@ -232,3 +232,95 @@ def test_define_endpoint_resolves_credential_reference():
     assert response.status_code == 200
     assert define.call_args.kwargs["api_key"] == "sk-server-side"
     assert define.call_args.kwargs["provider"] == "OpenAI"
+
+
+def test_register_credential_live_verification_401_auth_error():
+    from openai import AuthenticationError
+    import httpx
+
+    with patch(
+        "backend.services.credential_service.OpenAI"
+    ) as mock_openai:
+        mock_client = mock_openai.return_value
+        mock_resp = httpx.Response(401, request=httpx.Request("POST", "https://api.openai.com/v1/chat/completions"))
+        mock_client.chat.completions.create.side_effect = AuthenticationError(
+            "Invalid API key", response=mock_resp, body={"error": {"message": "Invalid API key"}}
+        )
+
+        response = client.post(
+            "/credentials",
+            json={"provider": "OpenAI", "api_key": "sk-invalid", "model": "gpt-4o"},
+        )
+        assert response.status_code == 400
+        data = response.json()
+        assert data["code"] == "INVALID_INPUT"
+        assert "Invalid API key for OpenAI" in data["message"]
+
+
+def test_register_credential_live_verification_404_model_not_found():
+    from openai import NotFoundError
+    import httpx
+
+    with patch(
+        "backend.services.credential_service.OpenAI"
+    ) as mock_openai:
+        mock_client = mock_openai.return_value
+        mock_resp = httpx.Response(404, request=httpx.Request("POST", "https://api.openai.com/v1/chat/completions"))
+        mock_client.chat.completions.create.side_effect = NotFoundError(
+            "Model not found", response=mock_resp, body={"error": {"message": "Model not found"}}
+        )
+
+        response = client.post(
+            "/credentials",
+            json={"provider": "OpenAI", "api_key": "sk-valid", "model": "non-existent-model"},
+        )
+        assert response.status_code == 400
+        data = response.json()
+        assert data["code"] == "INVALID_INPUT"
+        assert "Model 'non-existent-model' does not exist or is unavailable for OpenAI" in data["message"]
+
+
+def test_register_credential_live_verification_429_rate_limit():
+    from openai import RateLimitError
+    import httpx
+
+    with patch(
+        "backend.services.credential_service.OpenAI"
+    ) as mock_openai:
+        mock_client = mock_openai.return_value
+        mock_resp = httpx.Response(429, request=httpx.Request("POST", "https://api.openai.com/v1/chat/completions"))
+        mock_client.chat.completions.create.side_effect = RateLimitError(
+            "Rate limit exceeded", response=mock_resp, body={"error": {"message": "Rate limit"}}
+        )
+
+        response = client.post(
+            "/credentials",
+            json={"provider": "OpenAI", "api_key": "sk-valid", "model": "gpt-4o"},
+        )
+        assert response.status_code == 400
+        data = response.json()
+        assert data["code"] == "INVALID_INPUT"
+        assert "exceeded its quota or rate limit" in data["message"]
+
+
+def test_register_credential_live_verification_connection_error():
+    from openai import APIConnectionError
+    import httpx
+
+    with patch(
+        "backend.services.credential_service.OpenAI"
+    ) as mock_openai:
+        mock_client = mock_openai.return_value
+        mock_client.chat.completions.create.side_effect = APIConnectionError(
+            request=httpx.Request("POST", "https://api.openai.com/v1/chat/completions")
+        )
+
+        response = client.post(
+            "/credentials",
+            json={"provider": "OpenAI", "api_key": "sk-valid", "model": "gpt-4o"},
+        )
+        assert response.status_code == 400
+        data = response.json()
+        assert data["code"] == "INVALID_INPUT"
+        assert "Could not connect to OpenAI servers" in data["message"]
+

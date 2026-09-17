@@ -2,3 +2,7 @@ node_modules/
 .env
 *.log
 backend/.credentials.sqlite3
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/

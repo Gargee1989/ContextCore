@@ -9,6 +9,17 @@ import secrets
 import sqlite3
 import uuid
 from pathlib import Path
+import httpx
+from openai import (
+    OpenAI,
+    AuthenticationError,
+    NotFoundError,
+    RateLimitError,
+    APIConnectionError,
+    APITimeoutError,
+    APIStatusError,
+    OpenAIError,
+)
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
@@ -101,12 +112,95 @@ class CredentialService:
     def _hash_token(token: str) -> str:
         return hashlib.sha256(token.encode()).hexdigest()
 
+    def verify_credentials(
+        self,
+        provider: str,
+        api_key: str,
+        model: str,
+        base_url: str | None = None,
+    ) -> None:
+        """
+        Performs a lightweight test call to verify API key and model before saving.
+        Raises InvalidInputException with descriptive messages on failures.
+        """
+        try:
+            client = OpenAI(
+                api_key=api_key,
+                base_url=base_url or None,
+                timeout=10.0,
+            )
+            client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": "test"}],
+                max_tokens=1,
+            )
+        except AuthenticationError as exc:
+            raise InvalidInputException(
+                f"Invalid API key for {provider}. Please verify your key in the provider's dashboard."
+            ) from exc
+        except NotFoundError as exc:
+            raise InvalidInputException(
+                f"Model '{model}' does not exist or is unavailable for {provider}. Please check the model name."
+            ) from exc
+        except RateLimitError as exc:
+            raise InvalidInputException(
+                "The provider API key has exceeded its quota or rate limit."
+            ) from exc
+        except (APIConnectionError, APITimeoutError, httpx.ConnectError, httpx.TimeoutException) as exc:
+            raise InvalidInputException(
+                f"Could not connect to {provider} servers to verify the key. Please check your internet connection or try again later."
+            ) from exc
+        except APIStatusError as exc:
+            if exc.status_code == 401:
+                raise InvalidInputException(
+                    f"Invalid API key for {provider}. Please verify your key in the provider's dashboard."
+                ) from exc
+            if exc.status_code == 404:
+                raise InvalidInputException(
+                    f"Model '{model}' does not exist or is unavailable for {provider}. Please check the model name."
+                ) from exc
+            if exc.status_code == 429:
+                raise InvalidInputException(
+                    "The provider API key has exceeded its quota or rate limit."
+                ) from exc
+            if exc.status_code and exc.status_code >= 500:
+                raise InvalidInputException(
+                    f"Could not connect to {provider} servers to verify the key. Please check your internet connection or try again later."
+                ) from exc
+            raise InvalidInputException(
+                f"Could not connect to {provider} servers to verify the key. Please check your internet connection or try again later."
+            ) from exc
+        except OpenAIError as exc:
+            error_str = str(exc).lower()
+            if "401" in error_str or "auth" in error_str:
+                raise InvalidInputException(
+                    f"Invalid API key for {provider}. Please verify your key in the provider's dashboard."
+                ) from exc
+            if "404" in error_str or "not found" in error_str:
+                raise InvalidInputException(
+                    f"Model '{model}' does not exist or is unavailable for {provider}. Please check the model name."
+                ) from exc
+            if "429" in error_str or "rate" in error_str or "quota" in error_str:
+                raise InvalidInputException(
+                    "The provider API key has exceeded its quota or rate limit."
+                ) from exc
+            raise InvalidInputException(
+                f"Could not connect to {provider} servers to verify the key. Please check your internet connection or try again later."
+            ) from exc
+        except Exception as exc:
+            if isinstance(exc, InvalidInputException):
+                raise
+            raise InvalidInputException(
+                f"Could not connect to {provider} servers to verify the key. Please check your internet connection or try again later."
+            ) from exc
+
     def register(
         self,
         provider: str,
         api_key: str,
         model: str | None = None,
         base_url: str | None = None,
+        verify: bool = True,
     ) -> dict[str, str | None]:
         normalized_provider = normalize_provider_name(provider)
         if normalized_provider not in SUPPORTED_PROVIDERS:
@@ -118,10 +212,19 @@ class CredentialService:
         if not clean_api_key or clean_api_key in PLACEHOLDERS:
             raise InvalidInputException("A valid provider API key is required.")
 
-        credential_id = str(uuid.uuid4())
-        access_token = secrets.token_urlsafe(32)
         resolved_model = (model or "").strip() or DEFAULT_MODELS[normalized_provider]
         resolved_base_url = (base_url or "").strip() or DEFAULT_BASE_URLS[normalized_provider]
+
+        if verify:
+            self.verify_credentials(
+                provider=normalized_provider,
+                api_key=clean_api_key,
+                model=resolved_model,
+                base_url=resolved_base_url,
+            )
+
+        credential_id = str(uuid.uuid4())
+        access_token = secrets.token_urlsafe(32)
         encrypted_api_key = self._encrypt_api_key(normalized_provider, clean_api_key)
 
         with sqlite3.connect(self.db_path) as connection:
