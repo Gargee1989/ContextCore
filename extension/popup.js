@@ -279,3 +279,84 @@ if (settingsForm) {
 		}
 	});
 }
+
+// ---------------------------------------------------------------------------
+// Theme picker
+// ---------------------------------------------------------------------------
+
+const themeGrid = document.querySelector("#grid");
+
+if (themeGrid) {
+	const THEMES = [
+		{ id: "warm-calm",          name: "Warm Calm",     mode: "light" },
+		{ id: "fresh-calm",         name: "Fresh Calm",    mode: "light" },
+		{ id: "soft-natural",       name: "Soft Natural",  mode: "light" },
+		{ id: "warm-friendly",      name: "Warm Friendly", mode: "light" },
+		{ id: "warm-calm-dark",     name: "Warm Calm",     mode: "dark"  },
+		{ id: "fresh-calm-dark",    name: "Fresh Calm",    mode: "dark"  },
+		{ id: "soft-natural-dark",  name: "Soft Natural",  mode: "dark"  },
+		{ id: "warm-friendly-dark", name: "Warm Friendly", mode: "dark"  }
+	];
+
+	const DEFAULT_THEME = "warm-calm";
+	const themeStatus = document.querySelector("#status");
+	const modeTabs = document.querySelectorAll(".mode");
+
+	let currentTheme = localStorage.getItem("cc-theme") || DEFAULT_THEME;
+	let currentMode = THEMES.find((t) => t.id === currentTheme)?.mode || "light";
+
+	document.body.setAttribute("data-loading", "");
+
+	function renderThemes() {
+		themeGrid.textContent = "";
+
+		for (const theme of THEMES.filter((t) => t.mode === currentMode)) {
+			const button = document.createElement("button");
+			button.className = "swatch";
+			button.dataset.theme = theme.id;
+			button.setAttribute("role", "radio");
+			button.setAttribute("aria-checked", String(theme.id === currentTheme));
+			button.innerHTML = `
+				<div class="preview">
+					<div class="p-word">Machine</div>
+					<div class="p-line"></div>
+					<div class="p-line short"></div>
+					<div class="p-btn"></div>
+				</div>
+				<span class="name">${theme.name}</span>`;
+			button.addEventListener("click", () => selectTheme(theme.id));
+			themeGrid.append(button);
+		}
+
+		for (const tab of modeTabs) {
+			tab.setAttribute("aria-selected", String(tab.dataset.mode === currentMode));
+		}
+	}
+
+	function selectTheme(id) {
+		currentTheme = id;
+		localStorage.setItem("cc-theme", id);
+		chrome.storage.local.set({ contentCoreTheme: id });
+		if (themeStatus) themeStatus.textContent = "Theme applied";
+		renderThemes();
+	}
+
+	for (const tab of modeTabs) {
+		tab.addEventListener("click", () => {
+			currentMode = tab.dataset.mode;
+			renderThemes();
+		});
+	}
+
+	chrome.storage.local.get({ contentCoreTheme: DEFAULT_THEME }, ({ contentCoreTheme }) => {
+		if (contentCoreTheme !== currentTheme) {
+			currentTheme = contentCoreTheme;
+			currentMode = THEMES.find((t) => t.id === contentCoreTheme)?.mode || "light";
+			localStorage.setItem("cc-theme", contentCoreTheme);
+		}
+		renderThemes();
+		document.body.removeAttribute("data-loading");
+	});
+
+	renderThemes();
+}
