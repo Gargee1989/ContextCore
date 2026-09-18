@@ -13,6 +13,7 @@
 	let lookupHost = null;
 	let shadowRoot = null;
 	let savedRange = null;
+	let currentTheme = "warm-calm";
 
 	const clean = (value) => String(value || "").replace(/\s+/g, " ").trim();
 
@@ -445,6 +446,7 @@
 
 		lookupHost = document.createElement("div");
 		lookupHost.setAttribute("data-contentcore-host", "true");
+		lookupHost.setAttribute("data-theme", currentTheme);
 		shadowRoot = lookupHost.attachShadow({ mode: "closed" });
 
 		const isHighlighted = isRangeHighlighted(savedRange);
@@ -457,6 +459,55 @@
 					padding: 0;
 				}
 
+				/* Theme tokens. Default palette matches the original look;
+				   "warm-calm" is an example alt palette driven by chrome.storage.sync's
+				   theme setting. Swap in real values from your old themes.css here. */
+				:host {
+					--cc-bg: #ffffff;
+					--cc-card-bg: #ffffff;
+					--cc-border: #e0e0e0;
+					--cc-card-border: #e5e7eb;
+					--cc-text: #1f2937;
+					--cc-text-strong: #111827;
+					--cc-text-muted: #6b7280;
+					--cc-text-soft: #374151;
+					--cc-hover-bg: #f3f4f6;
+					--cc-accent-bg: #fef08a;
+					--cc-accent-text: #854d0e;
+					--cc-success-bg: #ecfdf5;
+					--cc-success-text: #10b981;
+					--cc-spinner-track: #e5e7eb;
+					--cc-spinner-active: #2563eb;
+					--cc-error-title: #b91c1c;
+					--cc-error-text: #dc2626;
+					--cc-meta-border: #e5e7eb;
+					--cc-meta-badge: #4b5563;
+					--cc-highlight-mark: rgba(255, 235, 59, 0.45);
+				}
+
+				:host([data-theme="warm-calm"]) {
+					--cc-bg: #fffaf3;
+					--cc-card-bg: #fffaf3;
+					--cc-border: #f0dfc8;
+					--cc-card-border: #f0dfc8;
+					--cc-text: #4a3728;
+					--cc-text-strong: #33241a;
+					--cc-text-muted: #8a7462;
+					--cc-text-soft: #5c4636;
+					--cc-hover-bg: #f7ead9;
+					--cc-accent-bg: #fde68a;
+					--cc-accent-text: #7c4a03;
+					--cc-success-bg: #eaf5ea;
+					--cc-success-text: #4d7c3f;
+					--cc-spinner-track: #f0dfc8;
+					--cc-spinner-active: #c2410c;
+					--cc-error-title: #9a3412;
+					--cc-error-text: #b45309;
+					--cc-meta-border: #f0dfc8;
+					--cc-meta-badge: #8a6a4a;
+					--cc-highlight-mark: rgba(253, 230, 138, 0.6);
+				}
+
 				.cc-floating-pill-container {
 					position: fixed;
 					z-index: 2147483647;
@@ -467,14 +518,14 @@
 					font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 					font-size: 14px;
 					line-height: 1.5;
-					color: #1f2937;
+					color: var(--cc-text);
 				}
 
 				.cc-floating-pill {
 					display: flex;
 					align-items: center;
-					background: #ffffff;
-					border: 1px solid #e0e0e0;
+					background: var(--cc-bg);
+					border: 1px solid var(--cc-border);
 					border-radius: 8px;
 					box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 1px 4px rgba(0, 0, 0, 0.06);
 					padding: 4px 6px;
@@ -486,7 +537,7 @@
 				.cc-explain-btn {
 					background: transparent;
 					border: none;
-					color: #1f2937;
+					color: var(--cc-text);
 					font-size: 13px;
 					font-weight: 500;
 					padding: 5px 10px;
@@ -498,15 +549,15 @@
 				}
 
 				.cc-explain-btn:hover {
-					background: #f3f4f6;
-					color: #111827;
+					background: var(--cc-hover-bg);
+					color: var(--cc-text-strong);
 				}
 
 				/* 2. Thin vertical separator line (|) */
 				.cc-pill-separator {
 					width: 1px;
 					height: 18px;
-					background-color: #e5e7eb;
+					background-color: var(--cc-card-border);
 					margin: 0 2px;
 				}
 
@@ -520,38 +571,38 @@
 					border: none;
 					background: transparent;
 					border-radius: 5px;
-					color: #4b5563;
+					color: var(--cc-meta-badge);
 					cursor: pointer;
 					padding: 0;
 					transition: background 0.15s, color 0.15s;
 				}
 
 				.cc-pill-icon-btn:hover {
-					background: #f3f4f6;
-					color: #111827;
+					background: var(--cc-hover-bg);
+					color: var(--cc-text-strong);
 				}
 
 				.cc-pill-icon-btn.active {
-					background: #fef08a;
-					color: #854d0e;
+					background: var(--cc-accent-bg);
+					color: var(--cc-accent-text);
 				}
 
 				.cc-pill-icon-btn.saved-success {
-					color: #10b981;
-					background: #ecfdf5;
+					color: var(--cc-success-text);
+					background: var(--cc-success-bg);
 				}
 
 				/* Dropdown Card */
 				.cc-dropdown-card {
 					margin-top: 8px;
 					width: 320px;
-					background: #ffffff;
-					border: 1px solid #e5e7eb;
+					background: var(--cc-card-bg);
+					border: 1px solid var(--cc-card-border);
 					border-radius: 8px;
 					box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.06);
 					padding: 14px;
 					font-family: inherit;
-					color: #1f2937;
+					color: var(--cc-text);
 					animation: ccCardFadeIn 0.15s ease-out;
 				}
 
@@ -566,20 +617,20 @@
 					justify-content: space-between;
 					margin-bottom: 8px;
 					padding-bottom: 6px;
-					border-bottom: 1px solid #f3f4f6;
+					border-bottom: 1px solid var(--cc-meta-border);
 				}
 
 				.cc-card-word {
 					font-size: 15px;
 					font-weight: 700;
-					color: #111827;
+					color: var(--cc-text-strong);
 					overflow-wrap: anywhere;
 				}
 
 				.cc-card-close {
 					border: none;
 					background: transparent;
-					color: #9ca3af;
+					color: var(--cc-text-muted);
 					cursor: pointer;
 					font-size: 18px;
 					line-height: 1;
@@ -588,21 +639,21 @@
 				}
 
 				.cc-card-close:hover {
-					background: #f3f4f6;
-					color: #4b5563;
+					background: var(--cc-hover-bg);
+					color: var(--cc-text-soft);
 				}
 
 				.cc-card-body {
 					font-size: 13.5px;
 					line-height: 1.5;
-					color: #374151;
+					color: var(--cc-text-soft);
 				}
 
 				.cc-card-loading {
 					display: flex;
 					align-items: center;
 					gap: 8px;
-					color: #6b7280;
+					color: var(--cc-text-muted);
 					font-size: 13px;
 					padding: 8px 0;
 				}
@@ -610,8 +661,8 @@
 				.cc-card-spinner {
 					width: 16px;
 					height: 16px;
-					border: 2px solid #e5e7eb;
-					border-top-color: #2563eb;
+					border: 2px solid var(--cc-spinner-track);
+					border-top-color: var(--cc-spinner-active);
 					border-radius: 50%;
 					animation: ccSpin 0.7s linear infinite;
 				}
@@ -621,7 +672,7 @@
 				}
 
 				.cc-card-error {
-					color: #dc2626;
+					color: var(--cc-error-text);
 					font-size: 13px;
 					padding: 4px 0;
 				}
@@ -633,20 +684,20 @@
 				.cc-error-title {
 					font-size: 13.5px;
 					font-weight: 600;
-					color: #b91c1c;
+					color: var(--cc-error-title);
 					margin-bottom: 4px;
 				}
 
 				.cc-error-desc {
 					font-size: 12.5px;
 					line-height: 1.45;
-					color: #374151;
+					color: var(--cc-text-soft);
 					margin-bottom: 4px;
 				}
 
 				.cc-error-hint {
 					font-size: 11.5px;
-					color: #6b7280;
+					color: var(--cc-text-muted);
 					font-style: italic;
 				}
 
@@ -663,7 +714,7 @@
 					gap: 6px;
 					margin-top: 10px;
 					padding-top: 8px;
-					border-top: 1px dashed #e5e7eb;
+					border-top: 1px dashed var(--cc-meta-border);
 					font-size: 12px;
 				}
 
@@ -675,12 +726,12 @@
 
 				.cc-meta-badge {
 					font-weight: 600;
-					color: #4b5563;
+					color: var(--cc-meta-badge);
 					min-width: 60px;
 				}
 
 				.cc-meta-value {
-					color: #1f2937;
+					color: var(--cc-text);
 					flex: 1;
 				}
 			</style>
@@ -813,4 +864,22 @@
 	});
 
 	document.addEventListener("scroll", removeCard, { passive: true });
+
+	document.addEventListener("keydown", (e) => {
+		if (e.key === "Escape") removeCard();
+	});
+
+	// Theme: read preference once, apply live to any open card, and keep it
+	// current for the next card that opens.
+	chrome.storage.sync.get({ theme: "warm-calm" }, ({ theme }) => {
+		currentTheme = theme;
+		lookupHost?.setAttribute("data-theme", currentTheme);
+	});
+
+	chrome.storage.onChanged.addListener((changes, area) => {
+		if (area === "sync" && changes.theme) {
+			currentTheme = changes.theme.newValue;
+			lookupHost?.setAttribute("data-theme", currentTheme);
+		}
+	});
 })();
