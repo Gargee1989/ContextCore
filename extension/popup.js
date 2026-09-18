@@ -7,7 +7,58 @@ if (settingsForm) {
 	const clearCredential = document.querySelector("#clear-credential");
 	const status = document.querySelector("#status");
 	const submitBtn = settingsForm.querySelector('button[type="submit"]');
+	const connectionStatusBadge = document.querySelector("#connection-status-badge");
+	const connectionStatusText = document.querySelector("#connection-status-text");
+	const providerError = document.querySelector("#provider-error");
+	const apiKeyError = document.querySelector("#api-key-error");
 	let hasSavedCredential = false;
+
+	function updateStatusBadge(state) {
+		if (!connectionStatusBadge) return;
+		connectionStatusBadge.classList.remove("status-connected", "status-setup", "status-verifying");
+
+		if (state === "connected") {
+			connectionStatusBadge.classList.add("status-connected");
+			if (connectionStatusText) connectionStatusText.textContent = "Connected";
+		} else if (state === "verifying") {
+			connectionStatusBadge.classList.add("status-verifying");
+			if (connectionStatusText) connectionStatusText.textContent = "Verifying...";
+		} else {
+			connectionStatusBadge.classList.add("status-setup");
+			if (connectionStatusText) connectionStatusText.textContent = "Setup needed";
+		}
+	}
+
+	function showFieldError(inputElement, errorElement, message) {
+		if (inputElement) inputElement.classList.add("input-invalid");
+		if (errorElement) {
+			if (message) errorElement.textContent = message;
+			errorElement.style.display = "block";
+		}
+	}
+
+	function clearFieldError(inputElement, errorElement, defaultMessage) {
+		if (inputElement) inputElement.classList.remove("input-invalid");
+		if (errorElement) {
+			errorElement.style.display = "none";
+			if (defaultMessage) errorElement.textContent = defaultMessage;
+		}
+	}
+
+	function clearFieldErrors() {
+		clearFieldError(provider, providerError, "Please select a provider.");
+		clearFieldError(llmApiKey, apiKeyError, "Please enter your provider API key.");
+		if (llmModel) llmModel.classList.remove("input-invalid");
+	}
+
+	if (provider) {
+		provider.addEventListener("input", () => clearFieldError(provider, providerError, "Please select a provider."));
+		provider.addEventListener("change", () => clearFieldError(provider, providerError, "Please select a provider."));
+	}
+	if (llmApiKey) {
+		llmApiKey.addEventListener("input", () => clearFieldError(llmApiKey, apiKeyError, "Please enter your provider API key."));
+		llmApiKey.addEventListener("change", () => clearFieldError(llmApiKey, apiKeyError, "Please enter your provider API key."));
+	}
 
 	function checkKeyProviderMismatch(selectedProvider, key) {
 		const trimmedKey = key.trim();
@@ -69,12 +120,13 @@ if (settingsForm) {
 	ContentCoreCrypto.readSettings().then((settings) => {
 		provider.value = settings.contentCoreProvider || "";
 		llmModel.value = settings.contentCoreLlmModel || "";
-		setCredentialFieldsLocked(
-			Boolean(settings.contentCoreCredentialId && settings.contentCoreCredentialToken)
-		);
+		const isConfigured = Boolean(settings.contentCoreCredentialId && settings.contentCoreCredentialToken);
+		setCredentialFieldsLocked(isConfigured);
+		updateStatusBadge(isConfigured ? "connected" : "setup");
 	});
 
 	clearCredential.addEventListener("click", async () => {
+		clearFieldErrors();
 		try {
 			const settings = await ContentCoreCrypto.readSettings();
 			if (settings.contentCoreCredentialId && settings.contentCoreCredentialToken) {
@@ -108,6 +160,7 @@ if (settingsForm) {
 			llmApiKey.value = "";
 			llmModel.value = "";
 			setCredentialFieldsLocked(false);
+			updateStatusBadge("setup");
 			status.textContent = "Saved provider key removed.";
 			status.className = "success";
 		} catch (error) {
@@ -118,28 +171,44 @@ if (settingsForm) {
 
 	settingsForm.addEventListener("submit", async (event) => {
 		event.preventDefault();
-		const enteredKey = llmApiKey.value.trim();
-		const selectedProvider = provider.value;
+		clearFieldErrors();
+		status.textContent = "";
+		status.className = "";
 
-		if (enteredKey) {
-			if (hasSavedCredential) {
-				status.textContent = "Remove the saved provider key before adding another.";
-				status.className = "error";
-				return;
-			}
-			if (!selectedProvider) {
-				status.textContent = "Select a provider before registering its API key.";
-				status.className = "error";
-				return;
-			}
-			const mismatch = checkKeyProviderMismatch(selectedProvider, enteredKey);
-			if (mismatch) {
-				status.textContent = mismatch;
-				status.className = "error";
-				return;
-			}
+		if (hasSavedCredential) {
+			status.textContent = "Remove the saved provider key before adding another.";
+			status.className = "error";
+			return;
 		}
 
+		const enteredKey = llmApiKey.value.trim();
+		const selectedProvider = provider.value;
+		const enteredModel = llmModel.value.trim();
+
+		let hasValidationError = false;
+
+		if (!selectedProvider) {
+			showFieldError(provider, providerError, "Please select a provider.");
+			hasValidationError = true;
+		}
+
+		if (!enteredKey) {
+			showFieldError(llmApiKey, apiKeyError, "Please enter your provider API key.");
+			hasValidationError = true;
+		}
+
+		if (hasValidationError) {
+			return;
+		}
+
+		const mismatch = checkKeyProviderMismatch(selectedProvider, enteredKey);
+		if (mismatch) {
+			status.textContent = mismatch;
+			status.className = "error";
+			return;
+		}
+
+		updateStatusBadge("verifying");
 		setSubmitLoading(true);
 		try {
 			let credentialId;
@@ -153,14 +222,14 @@ if (settingsForm) {
 					body: JSON.stringify({
 						provider: selectedProvider,
 						api_key: enteredKey,
-						model: llmModel.value.trim() || undefined
+						model: enteredModel || undefined
 					})
 				});
 				if (!response.ok) {
 					let message = `Credential registration failed (${response.status})`;
 					try {
 						const error = await response.json();
-						message = error.message || message;
+						message = error.detail || error.message || message;
 					} catch {
 						// Keep the status fallback when the backend does not return JSON.
 					}
@@ -180,8 +249,8 @@ if (settingsForm) {
 			await chrome.storage.local.set({
 				contentCoreCredentialId: credentialId,
 				contentCoreCredentialTokenEncrypted: encryptedCredentialToken,
-				contentCoreProvider: provider.value.trim(),
-				contentCoreLlmModel: llmModel.value.trim()
+				contentCoreProvider: selectedProvider,
+				contentCoreLlmModel: enteredModel
 			});
 			await chrome.storage.local.remove([
 				"contentCoreApiKey",
@@ -192,17 +261,20 @@ if (settingsForm) {
 				"contentCoreLlmModelLegacy"
 			]);
 			setSubmitLoading(false);
+			updateStatusBadge("connected");
 			status.textContent = "✓ Key verified and saved successfully.";
 			status.className = "success";
 		} catch (error) {
 			setSubmitLoading(false);
+			updateStatusBadge(hasSavedCredential ? "connected" : "setup");
 			if (!hasSavedCredential) {
 				provider.disabled = false;
 				llmApiKey.disabled = false;
 				llmModel.disabled = false;
 				clearCredential.disabled = true;
 			}
-			status.textContent = error.message || "Unable to save settings.";
+			const errorMsg = error.message || "Unable to save settings.";
+			status.textContent = errorMsg;
 			status.className = "error";
 		}
 	});

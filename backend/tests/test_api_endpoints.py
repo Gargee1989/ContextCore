@@ -324,3 +324,65 @@ def test_register_credential_live_verification_connection_error():
         assert data["code"] == "INVALID_INPUT"
         assert "Could not connect to OpenAI servers" in data["message"]
 
+
+def test_register_credential_live_verification_403_forbidden_nvidia():
+    from openai import APIStatusError
+    import httpx
+
+    with patch(
+        "backend.services.credential_service.OpenAI"
+    ) as mock_openai:
+        mock_client = mock_openai.return_value
+        mock_resp = httpx.Response(403, request=httpx.Request("POST", "https://integrate.api.nvidia.com/v1/chat/completions"))
+        mock_client.chat.completions.create.side_effect = APIStatusError(
+            "Forbidden", response=mock_resp, body={"error": {"message": "Forbidden"}}
+        )
+
+        response = client.post(
+            "/credentials",
+            json={"provider": "NVIDIA NIM", "api_key": "nvapi-invalidkey12345", "model": "meta/llama-3.1-8b-instruct"},
+        )
+        assert response.status_code == 400
+        data = response.json()
+        assert data["code"] == "INVALID_INPUT"
+        assert data["message"] == "Invalid API key for NVIDIA NIM. Please verify your key in the provider's dashboard."
+
+
+def test_register_credential_live_verification_keyword_detection_nvidia():
+    from openai import OpenAIError
+
+    with patch(
+        "backend.services.credential_service.OpenAI"
+    ) as mock_openai:
+        mock_client = mock_openai.return_value
+        mock_client.chat.completions.create.side_effect = OpenAIError("Error: unauthorized access")
+
+        response = client.post(
+            "/credentials",
+            json={"provider": "NVIDIA NIM", "api_key": "nvapi-invalidkey12345", "model": "meta/llama-3.1-8b-instruct"},
+        )
+        assert response.status_code == 400
+        data = response.json()
+        assert data["code"] == "INVALID_INPUT"
+        assert data["message"] == "Invalid API key for NVIDIA NIM. Please verify your key in the provider's dashboard."
+
+
+def test_register_credential_live_verification_keyword_detection_gemini():
+    from openai import OpenAIError
+
+    with patch(
+        "backend.services.credential_service.OpenAI"
+    ) as mock_openai:
+        mock_client = mock_openai.return_value
+        mock_client.chat.completions.create.side_effect = OpenAIError("API key not valid. Please pass a valid API key.")
+
+        response = client.post(
+            "/credentials",
+            json={"provider": "Google Gemini", "api_key": "invalid-gemini-key", "model": "gemini-2.5-flash"},
+        )
+        assert response.status_code == 400
+        data = response.json()
+        assert data["code"] == "INVALID_INPUT"
+        assert data["message"] == "Invalid API key for Google Gemini. Please verify your key in the provider's dashboard."
+
+

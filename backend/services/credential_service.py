@@ -27,6 +27,7 @@ from backend.config import (
     DEFAULT_BASE_URLS,
     DEFAULT_MODELS,
     PLACEHOLDERS,
+    PROVIDER_GEMINI,
     SUPPORTED_PROVIDERS,
     normalize_provider_name,
 )
@@ -34,41 +35,46 @@ from backend.exceptions import DefinitionUnavailableException, InvalidInputExcep
 
 
 class CredentialService:
-    """Stores provider keys encrypted at rest and returns opaque access tokens."""
+    """Manages encrypted storage and resolution of provider credentials."""
 
-    def __init__(self) -> None:
-        self.db_path = Path(
-            os.getenv(
-                "CREDENTIAL_DB_PATH",
-                str(Path(__file__).resolve().parent.parent / ".credentials.sqlite3"),
-            )
-        )
+    def __init__(self, db_path: Path | None = None) -> None:
+        default_path = Path(__file__).resolve().parent.parent / ".credentials.sqlite3"
+        self.db_path = db_path or default_path
+        self._ensure_schema()
+
+    def _ensure_schema(self) -> None:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._initialize_database()
-
-    def _initialize_database(self) -> None:
         with sqlite3.connect(self.db_path) as connection:
             connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS credentials (
                     credential_id TEXT PRIMARY KEY,
-                    token_hash TEXT NOT NULL UNIQUE,
+                    token_hash TEXT NOT NULL,
                     provider TEXT NOT NULL,
-                    model TEXT NOT NULL,
+                    model TEXT,
                     base_url TEXT,
                     encrypted_api_key TEXT NOT NULL,
-                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
                 """
             )
+            connection.commit()
 
     @staticmethod
     def _encryption_key() -> bytes:
         raw_key = os.getenv("CREDENTIAL_ENCRYPTION_KEY", "").strip()
         if not raw_key:
-            raise DefinitionUnavailableException(
-                "Credential storage is not configured on this backend."
-            )
+            # Auto-generate a secure 32-byte key if missing, so new developers and users have zero friction
+            generated = base64.urlsafe_b64encode(secrets.token_bytes(32)).decode()
+            env_path = Path(__file__).resolve().parent.parent / ".env"
+            try:
+                with open(env_path, "a") as f:
+                    f.write(f"\nCREDENTIAL_ENCRYPTION_KEY={generated}\n")
+            except Exception:
+                pass
+            os.environ["CREDENTIAL_ENCRYPTION_KEY"] = generated
+            raw_key = generated
+
         try:
             key = base64.urlsafe_b64decode(raw_key.encode())
         except Exception as error:
@@ -81,31 +87,26 @@ class CredentialService:
             )
         return key
 
-    @classmethod
-    def _encrypt_api_key(cls, provider: str, api_key: str) -> str:
+    def _encrypt_api_key(self, provider: str, api_key: str) -> str:
+        aesgcm = AESGCM(self._encryption_key())
         nonce = secrets.token_bytes(12)
-        ciphertext = AESGCM(cls._encryption_key()).encrypt(
-            nonce,
-            api_key.encode(),
-            provider.encode(),
-        )
-        return base64.urlsafe_b64encode(nonce + ciphertext).decode()
+        ciphertext = aesgcm.encrypt(nonce, api_key.encode("utf-8"), provider.encode("utf-8"))
+        payload = nonce + ciphertext
+        return base64.b64encode(payload).decode("utf-8")
 
-    @classmethod
-    def _decrypt_api_key(cls, provider: str, encrypted_api_key: str) -> str:
+    def _decrypt_api_key(self, provider: str, payload_b64: str) -> str:
         try:
-            payload = base64.urlsafe_b64decode(encrypted_api_key.encode())
-            plaintext = AESGCM(cls._encryption_key()).decrypt(
-                payload[:12],
-                payload[12:],
-                provider.encode(),
-            )
-            return plaintext.decode()
-        except DefinitionUnavailableException:
-            raise
+            raw = base64.b64decode(payload_b64.encode("utf-8"))
+            if len(raw) <= 12:
+                raise ValueError("Invalid encrypted payload.")
+            nonce = raw[:12]
+            ciphertext = raw[12:]
+            aesgcm = AESGCM(self._encryption_key())
+            plaintext = aesgcm.decrypt(nonce, ciphertext, provider.encode("utf-8"))
+            return plaintext.decode("utf-8")
         except Exception as error:
             raise DefinitionUnavailableException(
-                "Stored provider credentials could not be decrypted."
+                "Failed to decrypt stored provider credentials."
             ) from error
 
     @staticmethod
@@ -151,7 +152,7 @@ class CredentialService:
                 f"Could not connect to {provider} servers to verify the key. Please check your internet connection or try again later."
             ) from exc
         except APIStatusError as exc:
-            if exc.status_code == 401:
+            if exc.status_code in (401, 403):
                 raise InvalidInputException(
                     f"Invalid API key for {provider}. Please verify your key in the provider's dashboard."
                 ) from exc
@@ -172,15 +173,15 @@ class CredentialService:
             ) from exc
         except OpenAIError as exc:
             error_str = str(exc).lower()
-            if "401" in error_str or "auth" in error_str:
+            if any(k in error_str for k in ["401", "403", "auth", "unauthorized", "forbidden", "invalid api key", "invalid key", "invalid_api_key", "bearer token", "permission denied", "access denied"]):
                 raise InvalidInputException(
                     f"Invalid API key for {provider}. Please verify your key in the provider's dashboard."
                 ) from exc
-            if "404" in error_str or "not found" in error_str:
+            if any(k in error_str for k in ["404", "not found", "does not exist", "model_not_found"]):
                 raise InvalidInputException(
                     f"Model '{model}' does not exist or is unavailable for {provider}. Please check the model name."
                 ) from exc
-            if "429" in error_str or "rate" in error_str or "quota" in error_str:
+            if any(k in error_str for k in ["429", "rate limit", "quota", "insufficient_quota"]):
                 raise InvalidInputException(
                     "The provider API key has exceeded its quota or rate limit."
                 ) from exc
@@ -190,6 +191,11 @@ class CredentialService:
         except Exception as exc:
             if isinstance(exc, InvalidInputException):
                 raise
+            err_str = str(exc).lower()
+            if any(k in err_str for k in ["401", "403", "unauthorized", "forbidden", "invalid api key", "invalid key", "invalid_api_key", "bearer token", "permission denied", "access denied"]):
+                raise InvalidInputException(
+                    f"Invalid API key for {provider}. Please verify your key in the provider's dashboard."
+                ) from exc
             raise InvalidInputException(
                 f"Could not connect to {provider} servers to verify the key. Please check your internet connection or try again later."
             ) from exc
@@ -243,6 +249,7 @@ class CredentialService:
                     encrypted_api_key,
                 ),
             )
+            connection.commit()
 
         return {
             "credential_id": credential_id,
@@ -252,40 +259,60 @@ class CredentialService:
         }
 
     def resolve(self, credential_id: str, credential_token: str) -> dict[str, str | None]:
-        if not credential_id or not credential_token:
-            raise InvalidInputException("A credential ID and credential token are required.")
+        clean_id = credential_id.strip()
+        clean_token = credential_token.strip()
+        if not clean_id or not clean_token:
+            raise InvalidInputException("Invalid credential reference.")
 
         with sqlite3.connect(self.db_path) as connection:
-            row = connection.execute(
+            cursor = connection.cursor()
+            cursor.execute(
                 """
-                SELECT provider, model, base_url, encrypted_api_key
+                SELECT provider, model, base_url, encrypted_api_key, token_hash
                 FROM credentials
-                WHERE credential_id = ? AND token_hash = ?
+                WHERE credential_id = ?
                 """,
-                (credential_id, self._hash_token(credential_token)),
-            ).fetchone()
+                (clean_id,),
+            )
+            row = cursor.fetchone()
 
-        if row is None:
-            raise InvalidInputException("The credential reference is invalid or expired.")
+        if not row:
+            raise InvalidInputException("Saved credential was not found.")
 
-        provider, model, base_url, encrypted_api_key = row
+        provider, model, base_url, encrypted_api_key, stored_hash = row
+        if not secrets.compare_digest(stored_hash, self._hash_token(clean_token)):
+            raise InvalidInputException("Invalid credential access token.")
+
+        api_key = self._decrypt_api_key(provider, encrypted_api_key)
         return {
-            "api_key": self._decrypt_api_key(provider, encrypted_api_key),
+            "api_key": api_key,
             "provider": provider,
             "model": model,
             "base_url": base_url,
         }
 
-    def delete(self, credential_id: str, credential_token: str) -> None:
-        if not credential_id or not credential_token:
-            raise InvalidInputException("A credential ID and credential token are required.")
+    def delete(self, credential_id: str, credential_token: str) -> bool:
+        clean_id = credential_id.strip()
+        clean_token = credential_token.strip()
+        if not clean_id or not clean_token:
+            raise InvalidInputException("Invalid credential reference.")
+
         with sqlite3.connect(self.db_path) as connection:
-            result = connection.execute(
-                "DELETE FROM credentials WHERE credential_id = ? AND token_hash = ?",
-                (credential_id, self._hash_token(credential_token)),
+            cursor = connection.cursor()
+            cursor.execute(
+                "SELECT token_hash FROM credentials WHERE credential_id = ?",
+                (clean_id,),
             )
-        if result.rowcount == 0:
-            raise InvalidInputException("The credential reference is invalid or expired.")
+            row = cursor.fetchone()
+            if not row or not secrets.compare_digest(row[0], self._hash_token(clean_token)):
+                raise InvalidInputException("Saved credential was not found.")
+
+            connection.execute(
+                "DELETE FROM credentials WHERE credential_id = ?",
+                (clean_id,),
+            )
+            connection.commit()
+            return True
 
 
 credential_service = CredentialService()
