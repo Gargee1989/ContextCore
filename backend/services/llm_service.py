@@ -12,7 +12,14 @@ import logging
 import re
 from typing import Any
 import httpx
-from openai import OpenAI, RateLimitError, APITimeoutError, OpenAIError
+from openai import (
+    OpenAI,
+    RateLimitError,
+    APITimeoutError,
+    OpenAIError,
+    AuthenticationError,
+    APIStatusError,
+)
 from pydantic import ValidationError
 
 from backend.config import (
@@ -28,6 +35,7 @@ from backend.exceptions import (
     RateLimitedException,
     ServiceTimeoutException,
     DefinitionUnavailableException,
+    InvalidInputException,
 )
 
 logger = logging.getLogger("contentcore.llm_service")
@@ -212,9 +220,9 @@ class LLMService:
                 base_url=base_url,
             )
             if not cfg["is_configured"]:
-                logger.error("LLM API key is unconfigured or invalid.")
-                raise DefinitionUnavailableException(
-                    "The definition service is temporarily unavailable. Please try again."
+                logger.warning("LLM API key is unconfigured or invalid in direct input.")
+                raise InvalidInputException(
+                    "No AI provider key configured. Please add your API key in the extension popup."
                 )
 
             target_provider = cfg["provider"]
@@ -228,6 +236,12 @@ class LLMService:
 
             client = self.create_client(api_key=target_key, base_url=target_base_url)
         else:
+            if not settings.is_configured:
+                logger.warning("LLM API key is unconfigured in backend settings.")
+                raise InvalidInputException(
+                    "No AI provider key configured. Please add your API key in the extension popup."
+                )
+
             client = self.get_client()
             target_model = settings.model
             target_provider = settings.provider_name
@@ -242,7 +256,7 @@ class LLMService:
                     user_message,
                     api_key=target_key,
                     model=target_model,
-                    base_url=cfg["base_url"],
+                    base_url=settings.gemini_base_url,
                 )
 
         try:
@@ -279,7 +293,40 @@ class LLMService:
                 "The definition service took too long to respond. Please try again."
             ) from to_err
 
-        except (RateLimitedException, ServiceTimeoutException, DefinitionUnavailableException):
+        except AuthenticationError as auth_err:
+            logger.warning("LLM provider authentication failed.")
+            if has_direct_input:
+                raise InvalidInputException(
+                    f"Invalid or expired API key for {target_provider}. Please verify your key in settings."
+                ) from auth_err
+            raise DefinitionUnavailableException(
+                "The definition service is temporarily unavailable. Please try again."
+            ) from auth_err
+
+        except APIStatusError as status_err:
+            if status_err.status_code in (401, 403):
+                logger.warning(f"LLM provider auth failed with status {status_err.status_code}.")
+                if has_direct_input:
+                    raise InvalidInputException(
+                        f"Invalid or expired API key for {target_provider}. Please verify your key in settings."
+                    ) from status_err
+                raise DefinitionUnavailableException(
+                    "The definition service is temporarily unavailable. Please try again."
+                ) from status_err
+            if status_err.status_code == 429:
+                raise RateLimitedException(
+                    "Too many definition requests. Please try again shortly."
+                ) from status_err
+            if status_err.status_code == 504:
+                raise ServiceTimeoutException(
+                    "The definition service took too long to respond. Please try again."
+                ) from status_err
+            logger.warning(f"Upstream provider status error: {status_err.status_code}")
+            raise DefinitionUnavailableException(
+                "The definition service is temporarily unavailable. Please try again."
+            ) from status_err
+
+        except (RateLimitedException, ServiceTimeoutException, DefinitionUnavailableException, InvalidInputException):
             # Re-raise domain exceptions as-is
             raise
 
@@ -293,8 +340,24 @@ class LLMService:
                         model=target_model,
                         base_url=cfg["base_url"] if has_direct_input else settings.gemini_base_url,
                     )
+                except (RateLimitedException, ServiceTimeoutException, InvalidInputException):
+                    raise
                 except Exception:
                     pass
+            err_str = str(api_err).lower()
+            if any(k in err_str for k in ["401", "403", "unauthorized", "forbidden", "invalid api key", "invalid_api_key", "api key not valid", "authentication", "bearer token", "permission denied", "access denied"]):
+                if has_direct_input:
+                    raise InvalidInputException(
+                        f"Invalid or expired API key for {target_provider}. Please verify your key in settings."
+                    ) from api_err
+            if any(k in err_str for k in ["429", "rate limit", "quota", "insufficient_quota"]):
+                raise RateLimitedException(
+                    "Too many definition requests. Please try again shortly."
+                ) from api_err
+            if any(k in err_str for k in ["504", "timeout", "timed out"]):
+                raise ServiceTimeoutException(
+                    "The definition service took too long to respond. Please try again."
+                ) from api_err
             logger.warning(f"Upstream provider error: {type(api_err).__name__}")
             raise DefinitionUnavailableException(
                 "The definition service is temporarily unavailable. Please try again."
@@ -346,6 +409,23 @@ class LLMService:
             raise ServiceTimeoutException(
                 "The definition service took too long to respond. Please try again."
             ) from timeout_error
+        except httpx.HTTPStatusError as http_error:
+            if http_error.response.status_code in (401, 403):
+                raise InvalidInputException(
+                    "Invalid or expired API key for Google Gemini. Please verify your key in settings."
+                ) from http_error
+            if http_error.response.status_code == 429:
+                raise RateLimitedException(
+                    "Too many definition requests. Please try again shortly."
+                ) from http_error
+            if http_error.response.status_code == 504:
+                raise ServiceTimeoutException(
+                    "The definition service took too long to respond. Please try again."
+                ) from http_error
+            logger.warning(f"Gemini HTTP status error: {http_error.response.status_code}")
+            raise DefinitionUnavailableException(
+                "The definition service is temporarily unavailable. Please try again."
+            ) from http_error
         except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as provider_error:
             logger.warning(
                 f"Gemini provider request failed: {type(provider_error).__name__}"

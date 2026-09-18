@@ -172,7 +172,9 @@ def test_service_maps_rate_limit_error(service):
         message="Rate limit reached", response=mock_response, body={}
     )
 
-    with patch.object(service, "get_client", return_value=mock_client):
+    with patch.object(service, "get_client", return_value=mock_client), patch(
+        "backend.services.llm_service.settings.is_configured", True
+    ):
         with pytest.raises(RateLimitedException) as exc:
             service.define("word", "context")
         assert exc.value.status_code == 429
@@ -183,7 +185,9 @@ def test_service_maps_timeout_error(service):
     mock_client = MagicMock()
     mock_client.chat.completions.create.side_effect = APITimeoutError(request=MagicMock())
 
-    with patch.object(service, "get_client", return_value=mock_client):
+    with patch.object(service, "get_client", return_value=mock_client), patch(
+        "backend.services.llm_service.settings.is_configured", True
+    ):
         with pytest.raises(ServiceTimeoutException) as exc:
             service.define("word", "context")
         assert exc.value.status_code == 504
@@ -192,11 +196,13 @@ def test_service_maps_timeout_error(service):
 
 def test_service_maps_provider_failure(service):
     mock_client = MagicMock()
-    mock_client.chat.completions.create.side_effect = AuthenticationError(
-        message="Invalid key", response=MagicMock(), body={}
+    mock_client.chat.completions.create.side_effect = OpenAIError(
+        "Upstream internal server failure"
     )
 
-    with patch.object(service, "get_client", return_value=mock_client):
+    with patch.object(service, "get_client", return_value=mock_client), patch(
+        "backend.services.llm_service.settings.is_configured", True
+    ):
         with pytest.raises(DefinitionUnavailableException) as exc:
             service.define("word", "context")
         assert exc.value.status_code == 503

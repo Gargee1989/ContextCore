@@ -102,21 +102,66 @@
 			display: inline-flex;
 			align-items: center;
 			gap: 5px;
-			background: var(--success-bg);
-			border: 1px solid var(--success-border);
-			color: var(--success-text);
 			font-size: 11px;
 			font-weight: 600;
 			padding: 3px 8px;
 			border-radius: 9999px;
+			transition: var(--transition);
 		}
 
 		.status-dot {
 			width: 6px;
 			height: 6px;
 			border-radius: 50%;
+			transition: var(--transition);
+		}
+
+		/* State 1: Connected (Configured) */
+		.status-badge.status-connected {
+			background: #ecfdf5;
+			border: 1px solid #a7f3d0;
+			color: #065f46;
+		}
+
+		.status-badge.status-connected .status-dot {
 			background-color: #10b981;
 			box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+		}
+
+		/* State 2: Setup Needed (Unconfigured) */
+		.status-badge.status-setup {
+			background: #fffbeb;
+			border: 1px solid #fde68a;
+			color: #92400e;
+		}
+
+		.status-badge.status-setup .status-dot {
+			background-color: #f59e0b;
+			box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+		}
+
+		/* State 3: Verifying (In-Progress) */
+		.status-badge.status-verifying {
+			background: #eff6ff;
+			border: 1px solid #bfdbfe;
+			color: #1e40af;
+		}
+
+		.status-badge.status-verifying .status-dot {
+			background-color: #3b82f6;
+			box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
+			animation: pulse-dot 1.2s ease-in-out infinite;
+		}
+
+		@keyframes pulse-dot {
+			0%, 100% {
+				opacity: 1;
+				transform: scale(1);
+			}
+			50% {
+				opacity: 0.35;
+				transform: scale(0.85);
+			}
 		}
 
 		/* Card Container */
@@ -218,6 +263,20 @@
 			color: #9ca3af;
 			cursor: not-allowed;
 			border-color: #e5e7eb;
+		}
+
+		input.input-invalid,
+		select.input-invalid {
+			border-color: #dc2626 !important;
+			box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.15) !important;
+		}
+
+		.field-error {
+			color: #dc2626;
+			font-size: 11px;
+			margin-top: 4px;
+			display: block;
+			font-weight: 500;
 		}
 
 		.field-hint {
@@ -436,9 +495,9 @@
 				<p>AI-powered reading assistant</p>
 			</div>
 		</div>
-		<div class="status-badge">
+		<div id="connection-status-badge" class="status-badge status-setup">
 			<span class="status-dot"></span>
-			<span>Ready</span>
+			<span id="connection-status-text">Setup needed</span>
 		</div>
 	</header>
 
@@ -462,11 +521,13 @@
 					<option value="OpenAI">OpenAI</option>
 					<option value="NVIDIA NIM">NVIDIA NIM</option>
 				</select>
+				<span id="provider-error" class="field-error" style="display: none;">Please select a provider.</span>
 			</div>
 
 			<div class="form-group">
 				<label for="llm-api-key">Provider API key <span class="label-helper">(Encrypted)</span></label>
 				<input id="llm-api-key" type="password" placeholder="Enter or replace your provider key" autocomplete="off">
+				<span id="api-key-error" class="field-error" style="display: none;">Please enter your provider API key.</span>
 				<span class="field-hint">Sent once to backend for encrypted storage.</span>
 			</div>
 

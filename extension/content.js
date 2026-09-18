@@ -208,16 +208,41 @@
 		return (await chrome.storage.local.get(CACHE_KEY))[CACHE_KEY] || {};
 	}
 
+	function renderCardError(cardBody, title, desc, hint = "") {
+		cardBody.innerHTML = `
+			<div class="cc-card-error-container">
+				<div class="cc-error-title">${escapeHtml(title)}</div>
+				<div class="cc-error-desc">${escapeHtml(desc)}</div>
+				${hint ? `<div class="cc-error-hint">${escapeHtml(hint)}</div>` : ""}
+			</div>
+		`;
+	}
+
 	// Call backend API /define
 	async function explainSelection(cardBody) {
 		if (!shadowRoot || !selectedText) return;
 
-		cardBody.innerHTML = `
-			<div class="cc-card-loading">
-				<div class="cc-card-spinner"></div>
-				<span>Getting explanation...</span>
-			</div>
-		`;
+		let settings;
+		try {
+			settings = await ContentCoreCrypto.readSettings();
+		} catch (err) {
+			console.error("[ContentCore] Failed to read settings:", err);
+			settings = {};
+		}
+
+		const hasCredential = Boolean(
+			settings.contentCoreCredentialId && settings.contentCoreCredentialToken
+		);
+
+		if (!hasCredential) {
+			renderCardError(
+				cardBody,
+				"API Key Setup Required",
+				"Please configure your AI provider (Google Gemini, OpenAI, or NVIDIA NIM) in the ContentCore extension settings to get word definitions.",
+				"Click the ContentCore icon in your browser toolbar to enter your key."
+			);
+			return;
+		}
 
 		const context = selectedContext;
 		const cacheKey = `${location.href}::${selectedText.toLowerCase()}::${context}`;
@@ -235,34 +260,107 @@
 			return;
 		}
 
+		if (typeof navigator !== "undefined" && navigator.onLine === false) {
+			renderCardError(
+				cardBody,
+				"No Internet Connection",
+				"Your device appears to be offline. Please check your network and try again."
+			);
+			return;
+		}
+
+		cardBody.innerHTML = `
+			<div class="cc-card-loading">
+				<div class="cc-card-spinner"></div>
+				<span>Getting explanation...</span>
+			</div>
+		`;
+
 		try {
-			const settings = await ContentCoreCrypto.readSettings();
 			const endpoint = settings.contentCoreEndpoint || ContentCoreCrypto.BACKEND_ENDPOINT;
 
 			const payload = {
 				word: selectionData.word,
 				target: selectionData.word,
-				context: selectionData.context
+				context: selectionData.context,
+				credential_id: settings.contentCoreCredentialId,
+				credential_token: settings.contentCoreCredentialToken
 			};
 
-			if (settings.contentCoreCredentialId && settings.contentCoreCredentialToken) {
-				payload.credential_id = settings.contentCoreCredentialId;
-				payload.credential_token = settings.contentCoreCredentialToken;
+			let response;
+			try {
+				response = await fetch(endpoint, {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json"
+					},
+					body: JSON.stringify(payload)
+				});
+			} catch (networkError) {
+				if (typeof navigator !== "undefined" && navigator.onLine === false) {
+					renderCardError(
+						cardBody,
+						"No Internet Connection",
+						"Your device appears to be offline. Please check your network and try again."
+					);
+				} else {
+					renderCardError(
+						cardBody,
+						"Connection Failed",
+						"Could not connect to the ContentCore backend. Please ensure the backend server is running and reachable."
+					);
+				}
+				return;
 			}
 
-			const response = await fetch(endpoint, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json"
-				},
-				body: JSON.stringify(payload)
-			});
-
-			if (!response.ok) throw new Error(`API error (${response.status})`);
+			if (!response.ok) {
+				let errTitle = "Service Error";
+				let errDesc = `Request failed (${response.status})`;
+				try {
+					const errorData = await response.json();
+					const message = errorData.message || errorData.detail || "";
+					if (response.status === 400) {
+						const lower = message.toLowerCase();
+						if (lower.includes("key") || lower.includes("credential") || lower.includes("auth") || lower.includes("token")) {
+							errTitle = "Invalid API Key";
+						} else {
+							errTitle = "Invalid Request";
+						}
+						errDesc = message || "Please check your settings or selected text.";
+					} else if (response.status === 429) {
+						errTitle = "Rate Limit Exceeded";
+						errDesc = message || "Too many requests. Please wait a moment before trying again.";
+					} else if (response.status === 504) {
+						errTitle = "Request Timed Out";
+						errDesc = message || "The AI provider took too long to respond. Please try again.";
+					} else if (response.status === 503) {
+						errTitle = "Service Unavailable";
+						errDesc = message || "The definition service is temporarily unavailable. Please try again later.";
+					} else {
+						errDesc = message || errDesc;
+					}
+				} catch {
+					if (response.status === 429) {
+						errTitle = "Rate Limit Exceeded";
+						errDesc = "Too many requests. Please wait a moment before trying again.";
+					} else if (response.status === 504) {
+						errTitle = "Request Timed Out";
+						errDesc = "The AI provider took too long to respond. Please try again.";
+					} else if (response.status === 503) {
+						errTitle = "Service Unavailable";
+						errDesc = "The definition service is temporarily unavailable. Please try again later.";
+					}
+				}
+				renderCardError(cardBody, errTitle, errDesc);
+				return;
+			}
 
 			const result = await response.json();
 			const meaning = clean(String(result.meaning || result.definition || result.explanation || result.answer || ""));
-			if (!meaning || meaning === "No definition") throw new Error("The API returned no explanation.");
+			if (!meaning || meaning === "No definition") {
+				renderCardError(cardBody, "No Definition", "The AI provider did not return an explanation for this selection.");
+				return;
+			}
 
 			currentDefinition = meaning;
 			currentTone = clean(String(result.tone || ""));
@@ -276,9 +374,7 @@
 			await chrome.storage.local.set({ [CACHE_KEY]: cache });
 			renderCardDefinition(cardBody, currentDefinition, currentTone, currentSynonym);
 		} catch (error) {
-			cardBody.innerHTML = `
-				<div class="cc-card-error">${escapeHtml(error.message || "Definition service unavailable.")}</div>
-			`;
+			renderCardError(cardBody, "Unexpected Error", error.message || "An unexpected error occurred.");
 		}
 	}
 
@@ -528,6 +624,30 @@
 					color: #dc2626;
 					font-size: 13px;
 					padding: 4px 0;
+				}
+
+				.cc-card-error-container {
+					padding: 6px 0;
+				}
+
+				.cc-error-title {
+					font-size: 13.5px;
+					font-weight: 600;
+					color: #b91c1c;
+					margin-bottom: 4px;
+				}
+
+				.cc-error-desc {
+					font-size: 12.5px;
+					line-height: 1.45;
+					color: #374151;
+					margin-bottom: 4px;
+				}
+
+				.cc-error-hint {
+					font-size: 11.5px;
+					color: #6b7280;
+					font-style: italic;
 				}
 
 				.cc-card-definition {
