@@ -4,6 +4,7 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>ContentCore Settings</title>
+	<link rel="stylesheet" href="themes.css">
 	<style>
 		:root {
 			--bg: #f8f9fa;
@@ -483,6 +484,123 @@
 			from { opacity: 0; transform: translateY(-2px); }
 			to { opacity: 1; transform: translateY(0); }
 		}
+
+		/* Card Appearance (theme picker for the on-page Explain card) */
+		.mode-toggle {
+			display: flex;
+			gap: 2px;
+			margin-bottom: 10px;
+			padding: 2px;
+			border: 1px solid var(--border);
+			border-radius: var(--radius-sm);
+		}
+
+		.mode-toggle .mode {
+			flex: 1;
+			height: 26px;
+			border: 0;
+			border-radius: 4px;
+			background: none;
+			color: var(--text-muted);
+			font: inherit;
+			font-size: 11.5px;
+			font-weight: 600;
+			cursor: pointer;
+			transition: var(--transition);
+		}
+
+		.mode-toggle .mode[aria-selected="true"] {
+			background: var(--primary-light);
+			color: var(--primary);
+		}
+
+		.mode-toggle .mode:focus-visible {
+			outline: 2px solid var(--border-focus);
+			outline-offset: 1px;
+		}
+
+		.theme-grid {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 8px;
+		}
+
+		.swatch {
+			padding: 0;
+			border: 1px solid var(--border);
+			border-radius: var(--radius-md);
+			background: none;
+			font: inherit;
+			text-align: left;
+			cursor: pointer;
+			overflow: hidden;
+			transition: var(--transition);
+		}
+
+		.swatch:hover {
+			box-shadow: var(--shadow-hover);
+		}
+
+		.swatch:focus-visible {
+			outline: 2px solid var(--border-focus);
+			outline-offset: 2px;
+		}
+
+		.swatch[aria-checked="true"] {
+			border-color: var(--primary);
+			box-shadow: 0 0 0 2px var(--primary-ring);
+		}
+
+		.swatch .preview {
+			padding: 8px 9px 9px;
+			background: var(--cc-surface);
+			border-bottom: 1px solid var(--cc-border);
+		}
+
+		.swatch .p-word {
+			font-size: 11.5px;
+			font-weight: 700;
+			color: var(--cc-heading);
+		}
+
+		.swatch .p-line {
+			height: 3px;
+			margin-top: 5px;
+			border-radius: 2px;
+			background: var(--cc-muted);
+			opacity: 0.4;
+		}
+
+		.swatch .p-line.short {
+			width: 62%;
+		}
+
+		.swatch .p-btn {
+			width: 36px;
+			height: 10px;
+			margin-top: 7px;
+			margin-left: auto;
+			border-radius: 3px;
+			background: var(--cc-accent);
+		}
+
+		.swatch .name {
+			display: block;
+			padding: 6px 9px;
+			font-size: 10.5px;
+			font-weight: 600;
+			color: var(--text-main);
+		}
+
+		body[data-loading] .theme-grid {
+			visibility: hidden;
+		}
+
+		#theme-status {
+			margin-top: 8px;
+			font-size: 10.5px;
+			color: var(--text-muted);
+		}
 	</style>
 </head>
 <body>
@@ -556,6 +674,31 @@
 
 			<div id="status" role="status" aria-live="polite"></div>
 		</form>
+	</div>
+
+	<!-- Card Appearance -->
+	<div class="card">
+		<div class="card-header">
+			<div class="card-header-icon">
+				<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+					<circle cx="13.5" cy="6.5" r=".5"></circle>
+					<circle cx="17.5" cy="10.5" r=".5"></circle>
+					<circle cx="8.5" cy="7.5" r=".5"></circle>
+					<circle cx="6.5" cy="12.5" r=".5"></circle>
+					<path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"></path>
+				</svg>
+			</div>
+			<span class="card-title">Card Appearance</span>
+		</div>
+
+		<div class="mode-toggle" role="tablist" aria-label="Theme brightness">
+			<button type="button" role="tab" class="mode" data-mode="light" aria-selected="true">Light</button>
+			<button type="button" role="tab" class="mode" data-mode="dark" aria-selected="false">Dark</button>
+		</div>
+
+		<div class="theme-grid" id="grid" role="radiogroup" aria-label="Explain card theme"></div>
+
+		<div id="theme-status">Saved automatically</div>
 	</div>
 
 	<!-- Quick Navigation Cards -->
